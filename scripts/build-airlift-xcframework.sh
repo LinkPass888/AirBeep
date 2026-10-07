@@ -8,6 +8,10 @@ BUILD_PARENT="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 BUILD_ROOT="$BUILD_PARENT/airbeep-aircard-$AIRCARD_COMMIT"
 PATCH_FILE="$ROOT/scripts/airlift-read-file.patch"
 
+# AirCard's build script otherwise defaults to a beta Xcode app that is not
+# present on the GitHub runner. setup-xcode has already selected the right one.
+export DEVELOPER_DIR="${DEVELOPER_DIR:-$(xcode-select -p)}"
+
 rm -rf "$BUILD_ROOT"
 git clone --quiet --filter=blob:none "$AIRCARD_REPO" "$BUILD_ROOT"
 git -C "$BUILD_ROOT" checkout --quiet --detach "$AIRCARD_COMMIT"
