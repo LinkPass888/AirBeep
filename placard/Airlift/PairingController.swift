@@ -10,7 +10,7 @@ final class PairingController: ObservableObject {
 
     static let shared = PairingController()
 
-    private let hostName = "Placard"
+    private let hostName = "AirBeep"
     private let hostModel = "Mac17,7"   // device sees a Mac-like pairing host
     private let bindAddress = "0.0.0.0"
 
@@ -265,7 +265,7 @@ final class PairingController: ObservableObject {
 
     fileprivate func presentPin(_ pin: String) {
         pairingPIN = pin
-        pairingStatus = "Enter PIN \(pin) in Settings › Privacy & Security › Developer Mode › Pair with Placard"
+        pairingStatus = "Enter PIN \(pin) in Settings › Privacy & Security › Developer Mode › Pair with AirBeep"
     }
 
     private func stopAdvertising() {

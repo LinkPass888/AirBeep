@@ -49,7 +49,7 @@ struct AirliftPairingView: View {
                 .foregroundStyle(.tint)
             Text("Pair this iPhone")
                 .font(.largeTitle.bold())
-            Text("Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with Placard.")
+            Text("Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with AirBeep.")
                 .foregroundStyle(.secondary)
             if let pin {
                 Text(pin).font(.largeTitle.monospacedDigit())
@@ -89,7 +89,7 @@ struct AirliftVPNView: View {
                 .foregroundStyle(.tint)
             Text("Connect LocalDevVPN")
                 .font(.largeTitle.bold())
-            Text("Open LocalDevVPN, tap Connect, then return to Placard.")
+            Text("Open LocalDevVPN, tap Connect, then return to AirBeep.")
                 .foregroundStyle(.secondary)
             Button("Open LocalDevVPN", action: openLocalDevVPN)
                 .buttonStyle(.bordered)

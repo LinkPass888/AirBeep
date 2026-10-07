@@ -3,6 +3,7 @@ import SwiftUI
 struct AirBeepRootView: View {
     @StateObject private var service = CallRecordingToneService.shared
     @State private var showingAbout = false
+    @State private var showingAirliftSetup = false
 
     var body: some View {
         NavigationStack {
@@ -10,6 +11,9 @@ struct AirBeepRootView: View {
                 VStack(spacing: 24) {
                     header
                     statusCard
+                    if service.needsAirliftSetup {
+                        airliftSetupCard
+                    }
                     toneToggle
                     details
                 }
@@ -29,10 +33,15 @@ struct AirBeepRootView: View {
             }
         }
         .task {
-            service.refresh()
+            await service.refresh()
         }
         .sheet(isPresented: $showingAbout) {
             AirBeepAboutView()
+        }
+        .sheet(isPresented: $showingAirliftSetup, onDismiss: {
+            Task { await service.refresh() }
+        }) {
+            AirBeepAirliftSetupView()
         }
         .alert(
             "Operation Failed",
@@ -107,9 +116,9 @@ struct AirBeepRootView: View {
                     get: { service.mode == .silentTone },
                     set: { enabled in
                         if enabled {
-                            service.applySilentTone()
+                            Task { await service.applySilentTone() }
                         } else {
-                            service.restoreSystemTone()
+                            Task { await service.restoreSystemTone() }
                         }
                     }
                 )
@@ -122,7 +131,7 @@ struct AirBeepRootView: View {
 
             if service.mode == .modified {
                 Button {
-                    service.restoreSystemTone()
+                    Task { await service.restoreSystemTone() }
                 } label: {
                     Label("Restore Original Tones", systemImage: "arrow.counterclockwise")
                         .frame(maxWidth: .infinity)
@@ -131,6 +140,28 @@ struct AirBeepRootView: View {
                 .controlSize(.large)
                 .disabled(service.isBusy)
             }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
+    }
+
+    private var airliftSetupCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Airlift Setup Required", systemImage: "link.badge.plus")
+                .font(.headline)
+
+            Text("Pair this iPhone and connect LocalDevVPN to allow AirBeep to access the recording tone files.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Button {
+                showingAirliftSetup = true
+            } label: {
+                Label("Open Airlift Setup", systemImage: "gearshape")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
@@ -173,7 +204,7 @@ struct AirBeepRootView: View {
         case .modified:
             String(localized: "The current tones do not match the original backup or AirBeep silence.")
         case .unavailable:
-            String(localized: "This device or system version does not support the required access.")
+            service.statusDetail ?? String(localized: "This device or system version does not support the required access.")
         }
     }
 

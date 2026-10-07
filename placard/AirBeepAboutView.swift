@@ -26,8 +26,6 @@ struct AirBeepAboutView: View {
 
                 Section("Introduction") {
                     Text("AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later.")
-                    Text("The original wallpaper browsing, importing, creation, and management features have been removed.")
-                        .foregroundStyle(.secondary)
                 }
 
                 Section("Author") {
@@ -76,8 +74,8 @@ struct AirBeepAboutView: View {
     }
 
     private var versionText: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "2"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "3"
         return "Version \(version) (\(build))"
     }
 }

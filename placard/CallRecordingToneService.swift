@@ -3,6 +3,10 @@ import Foundation
 
 enum CallRecordingToneError: LocalizedError {
     case unsupported
+    case pairingRequired
+    case airliftUnavailable
+    case airliftFailed(String)
+    case toneReadFailed(String, String)
     case missingTone(String)
     case missingBackup
     case invalidToneBundle
@@ -12,6 +16,14 @@ enum CallRecordingToneError: LocalizedError {
         switch self {
         case .unsupported:
             String(localized: "This device or system version is not supported.")
+        case .pairingRequired:
+            String(localized: "Pair this iPhone and connect LocalDevVPN before changing recording tones.")
+        case .airliftUnavailable:
+            String(localized: "This build is missing AirLift file access support.")
+        case .airliftFailed(let reason):
+            String(format: String(localized: "AirLift operation failed: %@"), reason)
+        case .toneReadFailed(let name, let reason):
+            String(format: String(localized: "Could not read %@: %@"), name, reason)
         case .missingTone(let name):
             String(format: String(localized: "Missing system tone: %@"), name)
         case .missingBackup:
@@ -39,6 +51,13 @@ final class CallRecordingToneService: ObservableObject {
     @Published private(set) var mode: ToneMode = .checking
     @Published private(set) var isBusy = false
     @Published private(set) var lastError: String?
+    @Published private(set) var statusDetail: String?
+    @Published private(set) var needsAirliftSetup = false
+
+    private enum AccessBackend {
+        case badQuery
+        case airlift(pairingPath: String)
+    }
 
     private struct ToneFile {
         let name: String
@@ -72,13 +91,23 @@ final class CallRecordingToneService: ObservableObject {
 
     private init() {}
 
-    func refresh() {
+    func refresh() async {
+        guard !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+
         do {
-            mode = try inspectMode()
+            let backend = try accessBackend()
+            mode = try await inspectMode(using: backend)
+            statusDetail = nil
+            needsAirliftSetup = false
             lastError = nil
         } catch {
             mode = .unavailable
-            lastError = error.localizedDescription
+            statusDetail = error.localizedDescription
+            needsAirliftSetup = shouldOfferAirliftSetup(for: error)
+            // Initial inspection must not pop an alert when setup is incomplete.
+            lastError = nil
         }
     }
 
@@ -86,63 +115,112 @@ final class CallRecordingToneService: ObservableObject {
         lastError = nil
     }
 
-    func applySilentTone() {
+    func applySilentTone() async {
         guard !isBusy else { return }
         isBusy = true
-        refreshAfterOperation {
-            let current = try readTones()
+        defer { isBusy = false }
+
+        do {
+            let backend = try accessBackend()
+            let current = try await readTones(using: backend)
             let silent = try silentTones()
             if current == silent {
                 mode = .silentTone
+                statusDetail = nil
+                needsAirliftSetup = false
+                lastError = nil
                 return
             }
 
             try ensureBackup(current)
             do {
-                try writeTones(silent)
+                try await writeTones(silent, using: backend)
                 mode = .silentTone
+                statusDetail = nil
+                needsAirliftSetup = false
+                lastError = nil
             } catch {
-                try? writeTones(current)
+                try? await writeTones(current, using: backend)
                 throw error
             }
+        } catch {
+            reportOperationError(error)
         }
     }
 
-    func restoreSystemTone() {
+    func restoreSystemTone() async {
         guard !isBusy else { return }
         isBusy = true
-        refreshAfterOperation {
-            let current = try readTones()
+        defer { isBusy = false }
+
+        do {
+            let backend = try accessBackend()
+            let current = try await readTones(using: backend)
             let backup = try readBackups()
             if current == backup {
                 mode = .systemTone
+                statusDetail = nil
+                needsAirliftSetup = false
+                lastError = nil
                 return
             }
 
             do {
-                try writeTones(backup)
+                try await writeTones(backup, using: backend)
                 mode = .systemTone
+                statusDetail = nil
+                needsAirliftSetup = false
+                lastError = nil
             } catch {
-                try? writeTones(current)
+                try? await writeTones(current, using: backend)
                 throw error
             }
-        }
-    }
-
-    private func refreshAfterOperation(_ operation: () throws -> Void) {
-        defer { isBusy = false }
-        do {
-            try operation()
-            lastError = nil
         } catch {
-            lastError = error.localizedDescription
-            mode = (try? inspectMode()) ?? .unavailable
+            reportOperationError(error)
         }
     }
 
-    private func inspectMode() throws -> ToneMode {
-        guard BadQuery.isAvailable else { throw CallRecordingToneError.unsupported }
-        let current = try readTones()
+    private func reportOperationError(_ error: Error) {
+        mode = .unavailable
+        statusDetail = error.localizedDescription
+        needsAirliftSetup = shouldOfferAirliftSetup(for: error)
+        lastError = error.localizedDescription
+    }
+
+    private func accessBackend() throws -> AccessBackend {
+        guard SystemCompatibility.isSupported else {
+            throw CallRecordingToneError.unsupported
+        }
+
+        let majorVersion = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        if majorVersion >= 27 || !BadQuery.isAvailable {
+            let pairingPath = PairingController.pairingFilePath()
+            let attributes = try? FileManager.default.attributesOfItem(atPath: pairingPath)
+            let size = attributes?[.size] as? Int ?? 0
+            guard size > 0 else {
+                throw CallRecordingToneError.pairingRequired
+            }
+            return .airlift(pairingPath: pairingPath)
+        }
+
+        return .badQuery
+    }
+
+    private func shouldOfferAirliftSetup(for error: Error) -> Bool {
+        guard let error = error as? CallRecordingToneError else { return false }
+        switch error {
+        case .pairingRequired, .airliftUnavailable, .airliftFailed:
+            return true
+        case .toneReadFailed:
+            return ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
+                || !BadQuery.isAvailable
+        case .unsupported, .missingTone, .missingBackup, .invalidToneBundle, .verificationFailed:
+            return false
+        }
+    }
+
+    private func inspectMode(using backend: AccessBackend) async throws -> ToneMode {
+        let current = try await readTones(using: backend)
         if current == (try silentTones()) {
             return .silentTone
         }
@@ -152,14 +230,41 @@ final class CallRecordingToneService: ObservableObject {
         return .modified
     }
 
-    private func readTones() throws -> [Data] {
-        try files.map { file in
+    private func readTones(using backend: AccessBackend) async throws -> [Data] {
+        var tones: [Data] = []
+        tones.reserveCapacity(files.count)
+
+        for file in files {
             do {
-                return try BadQuery.readData(at: file.systemPath)
+                switch backend {
+                case .badQuery:
+                    tones.append(try BadQuery.readData(at: file.systemPath))
+                case .airlift(let pairingPath):
+                    tones.append(
+                        try await AirliftToneTransport.shared.read(
+                            path: file.systemPath,
+                            pairingPath: pairingPath
+                        )
+                    )
+                }
             } catch {
-                throw CallRecordingToneError.missingTone(file.name)
+                throw mapReadError(error, file: file)
             }
         }
+
+        return tones
+    }
+
+    private func mapReadError(_ error: Error, file: ToneFile) -> Error {
+        if let error = error as? CallRecordingToneError {
+            return error
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoSuchFileError {
+            return CallRecordingToneError.missingTone(file.name)
+        }
+        return CallRecordingToneError.toneReadFailed(file.name, error.localizedDescription)
     }
 
     private func silentTones() throws -> [Data] {
@@ -217,10 +322,22 @@ final class CallRecordingToneService: ObservableObject {
         backupDirectory.appending(path: file.backupName)
     }
 
-    private func writeTones(_ tones: [Data]) throws {
-        for (file, data) in zip(files, tones) {
-            try BadQuery.writeData(data, to: file.systemPath)
-            guard try BadQuery.readData(at: file.systemPath) == data else {
+    private func writeTones(_ tones: [Data], using backend: AccessBackend) async throws {
+        switch backend {
+        case .badQuery:
+            for (file, data) in zip(files, tones) {
+                try BadQuery.writeData(data, to: file.systemPath)
+            }
+        case .airlift(let pairingPath):
+            let payload = zip(files, tones).map {
+                AirliftToneFile(name: $0.name, data: $1)
+            }
+            try await AirliftToneTransport.shared.write(files: payload, pairingPath: pairingPath)
+        }
+
+        let verified = try await readTones(using: backend)
+        for (index, file) in files.enumerated() {
+            guard verified.indices.contains(index), verified[index] == tones[index] else {
                 throw CallRecordingToneError.verificationFailed(file.name)
             }
         }

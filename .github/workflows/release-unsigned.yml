@@ -30,6 +30,9 @@ jobs:
         with:
           xcode-version: "27.0"
 
+      - name: Build patched AirliftFFI
+        run: bash scripts/build-airlift-xcframework.sh
+
       - name: Verify vendored Airlift
         run: bash scripts/verify-airlift.sh
 
