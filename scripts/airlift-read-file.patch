@@ -69,7 +69,7 @@ index a759c80..5324b2b 100644
  /// Write all files in `source_dir` directly to `target_dir` on the device outside the sandbox.
  ///
  /// # Safety
-@@ -1862,6 +1898,285 @@ async fn exploit_device_respring(
+@@ -1862,6 +1898,289 @@ async fn exploit_device_respring(
      }
  }
  
@@ -320,9 +320,13 @@ index a759c80..5324b2b 100644
 +
 +    let mut recovered: Option<Vec<u8>> = None;
 +    for _ in 0..80 {
-+        if let Ok(data) = afc.get_file_contents(&recovered_destination).await {
-+            recovered = Some(data);
-+            break;
++        if let Ok(mut fd) = afc.open(&recovered_destination, AfcFopenMode::RdOnly).await {
++            if let Ok(data) = fd.read_entire().await {
++                let _ = fd.close().await;
++                recovered = Some(data);
++                break;
++            }
++            let _ = fd.close().await;
 +        }
 +        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 +    }
