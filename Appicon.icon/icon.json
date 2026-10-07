@@ -5,25 +5,9 @@
       "hidden" : false,
       "layers" : [
         {
-          "fill" : {
-            "linear-gradient" : [
-              "display-p3:0.53725,0.66667,1.00000,0.67000",
-              "srgb:0.94902,0.63529,0.80392,1.00000"
-            ],
-            "orientation" : {
-              "start" : {
-                "x" : 0.34964612735215056,
-                "y" : 0.2880121638924456
-              },
-              "stop" : {
-                "x" : 0.7714161206317204,
-                "y" : 0.7345200464148528
-              }
-            }
-          },
           "hidden" : false,
-          "image-name" : "theatermask.and.paintbrush.fill.png",
-          "name" : "theatermask.and.paintbrush.fill"
+          "image-name" : "call-recording-sound-icon-v5.png",
+          "name" : "call-recording-sound-icon-v5"
         }
       ],
       "refractivity" : {
