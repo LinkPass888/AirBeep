@@ -16,6 +16,13 @@ rm -rf "$BUILD_ROOT"
 git clone --quiet --filter=blob:none "$AIRCARD_REPO" "$BUILD_ROOT"
 git -C "$BUILD_ROOT" checkout --quiet --detach "$AIRCARD_COMMIT"
 
+# Make the Rust LLVM nm available so verify-airlift.sh can inspect the
+# patch-added symbols. The Xcode nm cannot read Rust's compiler_builtins
+# objects (LLVM version mismatch).
+if command -v rustup >/dev/null 2>&1; then
+  rustup component add llvm-tools-preview 2>/dev/null || true
+fi
+
 git -C "$BUILD_ROOT" apply --check "$PATCH_FILE"
 git -C "$BUILD_ROOT" apply "$PATCH_FILE"
 

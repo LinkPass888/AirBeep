@@ -4,13 +4,32 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 shasum -a 256 -c Vendor/AirCard/SHA256SUMS
 
+# The Xcode nm cannot parse the compiler_builtins objects emitted by newer
+# Rust (LLVM 22) and crashes with "Unknown attribute kind", falsely reporting
+# our patch-added symbols as missing. Use the Rust LLVM nm instead, which is
+# built from the same LLVM and reads them correctly.
+find_nm() {
+  # rustup llvm-tools-preview places llvm-nm inside the active toolchain.
+  if command -v rustc >/dev/null 2>&1; then
+    local sysroot host nm_bin
+    sysroot="$(rustc --print sysroot)"
+    host="$(rustc -vV | sed -n 's/^host: //p')"
+    nm_bin="$sysroot/lib/rustlib/$host/bin/llvm-nm"
+    [ -x "$nm_bin" ] && { printf '%s' "$nm_bin"; return; }
+  fi
+  command -v llvm-nm && return
+  command -v rust-nm && return
+  command -v nm
+}
+NM="$(find_nm)"
+
 for library in \
   Vendor/AirCard/AirliftFFI.xcframework/ios-arm64/libairlift_ffi.a \
   Vendor/AirCard/AirliftFFI.xcframework/ios-arm64-simulator/libairlift_ffi.a
 do
   for symbol in al_exploit_read_file al_bytes_free al_set_target_host; do
-    if ! nm -gU "$library" | grep -Eq "[[:space:]]_${symbol}$"; then
-      echo "Airlift library is missing $symbol: $library" >&2
+    if ! "$NM" -gU "$library" 2>/dev/null | grep -Eq "[[:space:]]_${symbol}$"; then
+      echo "Airlift library is missing $symbol: $library (nm=$NM)" >&2
       exit 1
     fi
   done
