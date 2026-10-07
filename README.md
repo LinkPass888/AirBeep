@@ -1,69 +1,46 @@
-<p align="center">
-  <img src="docs/images/app-icon.png" width="128" alt="Placard app icon">
-</p>
+# AirBeep
 
-# Placard
+AirBeep is an iOS utility that customizes the built-in call-recording disclosure tones. It can replace the start and stop sounds with equal-length silence and restore the original files later.
 
-Placard is an iOS app for browsing, creating, installing, and managing custom PosterBoard wallpapers.
+The original wallpaper browsing, importing, creation, and management features are not part of the AirBeep interface.
 
 ## Features
 
-- Browse, search, sort, and preview community-made interactive wallpapers
-- Download or import local `.tendies` wallpaper packages
-- Turn a vertical video of up to 12 seconds into a looping or auto-reversing Lock Screen wallpaper
-- Install wallpapers directly into PosterBoard on supported physical devices
-- View and remove installed custom and featured wallpapers
-- Refresh SpringBoard after wallpaper changes with NeoSpring
-- English and Simplified Chinese localization
-
-## Preview
-
-<p align="center">
-  <img src="docs/images/browse-custom.png" width="360" alt="Placard's Custom wallpaper browsing screen">
-</p>
-
-## Requirements
-
-- Xcode 26 or later
-- iOS 26 or later
-- A physical device on which `bad_query` is supported for installation and library management
-
-The Simulator can be used to browse the catalog and develop the interface, but it cannot install or manage system wallpapers.
-
-## Building
-
-1. Clone this repository.
-2. Open `placard.xcodeproj` in Xcode.
-3. Select the **placard** target and choose your own development team under **Signing & Capabilities**.
-4. Build and run the app on your device.
-
-Swift Package Manager resolves [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) automatically when the project is opened.
+- One switch to silence the call-recording start and stop tones.
+- Automatic backup of the original tone files before the first change.
+- File read-back verification after every write.
+- One-tap restoration from the local backup.
+- English and Simplified Chinese UI.
 
 ## How it works
 
-Placard fetches the community wallpaper catalog, downloads the selected `.tendies` package, validates and extracts its PosterBoard descriptors, and assigns fresh identifiers before installation. On supported devices, `bad_query` provides access to the PosterBoard container. Placard also uses that access to display and remove installed wallpapers.
+AirBeep requests scoped container access for these system files:
 
-For a custom video wallpaper, Placard generates the required CAML and PosterBoard descriptor structure locally, then installs it through the same pipeline. Wallpaper changes finish with a SpringBoard refresh powered by NeoSpring.
+- `/var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a`
+- `/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf`
 
-> [!WARNING]
-> Placard relies on behavior that is not provided by a public Apple API. Compatibility may change between iOS releases. Installing or deleting system wallpaper data carries risk; use the app only on a device and OS version you are prepared to test.
+The replacement files are based on the silent assets from AirliftSilence and keep the original durations. Backups are stored in the app's Documents directory under `AirBeepBackups`.
 
-## Acknowledgements
+## Requirements
 
-Placard would not exist without the work of the following projects and contributors:
+- A physical iPhone running a supported iOS release.
+- Xcode 27 or newer for local builds.
+- The provided GitHub Actions workflow builds an unsigned IPA in the cloud.
 
-- [Pocket Poster](https://github.com/leminlimez/Pocket-Poster) by LeminLimez, the original project that inspired Placard's PosterBoard wallpaper workflow and `.tendies` support.
-- [AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) by Mak5er, whose PosterBoard wallpaper injection, on-device pairing, Grappa helper, and bundled AirliftFFI implementation are used for Airlift installation.
-- [AirLift](https://github.com/0xjohnnydev/airlift) by 0xjohnny, for the underlying AirTraffic and ATAirlock research.
-- [bad_query](https://github.com/forcequitOS/bad_query) by forcequitOS, which provides the sandbox extension technique used to access PosterBoard data on supported systems.
-- [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers) and [CAPlayground/wallpapers](https://github.com/CAPlayground/wallpapers), which provide the wallpaper metadata, previews, and packages shown in Placard.
-- [NeoSpring](https://github.com/rooootdev/neospring) by rooootdev and its contributors, whose SpringBoard refresh technique is used after wallpaper changes.
-- [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) for ZIP archive handling.
+> AirBeep relies on non-public system behavior. Compatibility can change between iOS releases. Removing a recording disclosure can affect whether another party is notified that a call is being recorded. Use the app only where permitted by local law and with the required consent.
 
-Wallpaper artwork remains the property of its respective creators. Author attribution supplied by the catalog is displayed in the app.
+## Build
+
+Open `placard.xcodeproj`, select the `placard` target, set your signing team, and build to a physical device.
+
+For an unsigned IPA, run the `Release unsigned IPA` workflow in GitHub Actions. The artifact is named `airbeep-v<version>-unsigned.ipa`.
+
+## Credits
+
+- [AirliftSilence](https://github.com/YiHoooong/AirliftSilence) for the silent tone assets and replacement research.
+- [airlift](https://github.com/0xjohnnydev/airlift) by 0xjohnny for the AirTraffic and Airlock research retained in the project dependencies.
+- The Placard contributors for the original iOS project structure and container-access implementation.
 
 ## License
 
-Placard is released under the [GNU General Public License v3.0](LICENSE).
-
-Some incorporated techniques or source material come from upstream projects. Review their respective terms before redistributing a build; in particular, the upstream `bad_query` and NeoSpring repositories may not declare a separate license.
+AirBeep is released under the [GNU General Public License v3.0](LICENSE).

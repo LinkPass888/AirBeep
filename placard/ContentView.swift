@@ -30,11 +30,7 @@ private extension UIDocumentPickerViewController {
 struct PlacardApp: App {
     var body: some Scene {
         WindowGroup {
-            if SystemCompatibility.isSupported {
-                PlacardRootView()
-            } else {
-                AirliftEntryView()
-            }
+            AirBeepRootView()
         }
     }
 }

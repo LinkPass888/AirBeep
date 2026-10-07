@@ -65,21 +65,21 @@ jobs:
             "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" \
             "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
-          zip -qry "placard-v${VERSION}-unsigned.ipa" Payload
+          zip -qry "airbeep-v${VERSION}-unsigned.ipa" Payload
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: placard-v${{ env.VERSION }}-unsigned
-          path: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
+          name: airbeep-v${{ env.VERSION }}-unsigned
+          path: ${{ runner.temp }}/airbeep-v${{ env.VERSION }}-unsigned.ipa
 
       - name: Publish GitHub release
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ env.VERSION }}
-          name: Placard v${{ env.VERSION }}
+          name: AirBeep v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
+          files: ${{ runner.temp }}/airbeep-v${{ env.VERSION }}-unsigned.ipa
