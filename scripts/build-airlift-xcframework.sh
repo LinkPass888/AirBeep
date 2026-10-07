@@ -23,8 +23,8 @@ if command -v rustup >/dev/null 2>&1; then
   rustup component add llvm-tools-preview 2>/dev/null || true
 fi
 
-git -C "$BUILD_ROOT" apply --check "$PATCH_FILE"
-git -C "$BUILD_ROOT" apply "$PATCH_FILE"
+git -C "$BUILD_ROOT" apply --check --3way "$PATCH_FILE"
+git -C "$BUILD_ROOT" apply --3way "$PATCH_FILE"
 
 "$BUILD_ROOT/build-ios.sh"
 
