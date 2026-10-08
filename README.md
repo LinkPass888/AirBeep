@@ -41,7 +41,7 @@ For an unsigned IPA, run the `Release unsigned IPA` workflow in GitHub Actions. 
 
 - [AirliftSilence](https://github.com/YiHoooong/AirliftSilence) for the silent tone assets and replacement research.
 - [airlift](https://github.com/0xjohnnydev/airlift) by 0xjohnny for the AirTraffic and Airlock research retained in the project dependencies.
-- The Placard contributors for the original iOS project structure and container-access implementation.
+- [Placard](https://github.com/frs0n/placard) contributors for the original iOS project structure and container-access implementation.
 
 ## License
 
