@@ -28,8 +28,13 @@ for library in \
   Vendor/AirCard/AirliftFFI.xcframework/ios-arm64-simulator/libairlift_ffi.a
 do
   for symbol in al_exploit_read_file al_bytes_free al_set_target_host; do
-    if ! "$NM" -gU "$library" 2>/dev/null | grep -Eq "[[:space:]]_${symbol}$"; then
+    if ! "$NM" -gU "$library" 2>/dev/null | grep -Eq "_${symbol}($|[[:space:]])" && \
+       ! strings "$library" 2>/dev/null | grep -Eq "_${symbol}($|[[:space:]])"; then
       echo "Airlift library is missing $symbol: $library (nm=$NM)" >&2
+      echo "Available _al_ symbols via NM:" >&2
+      "$NM" -gU "$library" 2>&1 | grep "_al_" | head -n 30 || true
+      echo "Available _al_ symbols via strings:" >&2
+      strings "$library" 2>/dev/null | grep "_al_" | head -n 30 || true
       exit 1
     fi
   done
