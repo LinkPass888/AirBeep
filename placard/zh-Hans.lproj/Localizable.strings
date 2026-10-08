@@ -23,12 +23,10 @@
 "Checking..." = "正在检查…";
 "System Original" = "系统原音";
 "Silent" = "静音提示音";
-"Modified" = "已修改";
 "Unavailable" = "不可用";
 "Reading the current disclosure tones." = "正在读取当前录音提示音。";
 "The iPhone's original recording disclosure tones are active." = "当前使用 iPhone 自带的通话录音提示音。";
 "The recording disclosure tones are replaced with silence." = "通话录音开始和结束提示音均已替换为等长静音。";
-"The current tones do not match the original backup or AirBeep silence." = "当前提示音既不是原始备份，也不是 AirBeep 静音。";
 "This device or system version does not support the required access." = "当前设备或系统版本不支持所需的访问权限。";
 "Silence recording tone" = "静音录音提示音";
 "Original tones are backed up before the first change." = "首次修改前会自动备份原始提示音。";

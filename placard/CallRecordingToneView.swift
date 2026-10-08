@@ -174,8 +174,6 @@ struct AirBeepRootView: View {
             String(localized: "System Original")
         case .silentTone:
             String(localized: "Silent")
-        case .modified:
-            String(localized: "Modified")
         case .unavailable:
             String(localized: "Unavailable")
         }
@@ -189,8 +187,6 @@ struct AirBeepRootView: View {
             String(localized: "The iPhone's original recording disclosure tones are active.")
         case .silentTone:
             String(localized: "The recording disclosure tones are replaced with silence.")
-        case .modified:
-            String(localized: "The current tones do not match the original backup or AirBeep silence.")
         case .unavailable:
             service.statusDetail ?? String(localized: "This device or system version does not support the required access.")
         }
@@ -204,8 +200,6 @@ struct AirBeepRootView: View {
             "speaker.wave.2.fill"
         case .silentTone:
             "speaker.slash.fill"
-        case .modified:
-            "waveform.badge.exclamationmark"
         case .unavailable:
             "exclamationmark.triangle.fill"
         }
@@ -219,8 +213,6 @@ struct AirBeepRootView: View {
             .blue
         case .silentTone:
             .orange
-        case .modified:
-            .purple
         case .unavailable:
             .red
         }

@@ -23,12 +23,10 @@
 "Checking..." = "Checking...";
 "System Original" = "System Original";
 "Silent" = "Silent";
-"Modified" = "Modified";
 "Unavailable" = "Unavailable";
 "Reading the current disclosure tones." = "Reading the current disclosure tones.";
 "The iPhone's original recording disclosure tones are active." = "The iPhone's original recording disclosure tones are active.";
 "The recording disclosure tones are replaced with silence." = "The recording disclosure tones are replaced with silence.";
-"The current tones do not match the original backup or AirBeep silence." = "The current tones do not match the original backup or AirBeep silence.";
 "This device or system version does not support the required access." = "This device or system version does not support the required access.";
 "Silence recording tone" = "Silence recording tone";
 "Original tones are backed up before the first change." = "Original tones are backed up before the first change.";

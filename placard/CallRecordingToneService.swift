@@ -42,7 +42,6 @@ final class CallRecordingToneService: ObservableObject {
         case checking
         case systemTone
         case silentTone
-        case modified
         case unavailable
     }
 
@@ -156,7 +155,15 @@ final class CallRecordingToneService: ObservableObject {
         do {
             let backend = try accessBackend()
             let current = try await readTones(using: backend)
-            let backup = try readBackups()
+            // No backup yet means the tones have never been changed, so they are
+            // already the original system tones.
+            guard let backup = try? readBackups() else {
+                mode = .systemTone
+                statusDetail = nil
+                needsAirliftSetup = false
+                lastError = nil
+                return
+            }
             if current == backup {
                 mode = .systemTone
                 statusDetail = nil
@@ -221,14 +228,7 @@ final class CallRecordingToneService: ObservableObject {
 
     private func inspectMode(using backend: AccessBackend) async throws -> ToneMode {
         let current = try await readTones(using: backend)
-        if current == (try silentTones()) {
-            return .silentTone
-        }
-        // With no backup yet, the current tones are the untouched system originals.
-        guard let backup = try? readBackups() else {
-            return .systemTone
-        }
-        return backup == current ? .systemTone : .modified
+        return current == (try silentTones()) ? .silentTone : .systemTone
     }
 
     private func readTones(using backend: AccessBackend) async throws -> [Data] {
