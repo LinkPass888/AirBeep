@@ -128,18 +128,6 @@ struct AirBeepRootView: View {
             }
             .tint(.orange)
             .disabled(service.isBusy || service.mode == .checking || service.mode == .unavailable)
-
-            if service.mode == .modified {
-                Button {
-                    Task { await service.restoreSystemTone() }
-                } label: {
-                    Label("Restore Original Tones", systemImage: "arrow.counterclockwise")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(service.isBusy)
-            }
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))

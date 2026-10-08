@@ -224,10 +224,11 @@ final class CallRecordingToneService: ObservableObject {
         if current == (try silentTones()) {
             return .silentTone
         }
-        if let backup = try? readBackups(), backup == current {
+        // With no backup yet, the current tones are the untouched system originals.
+        guard let backup = try? readBackups() else {
             return .systemTone
         }
-        return .modified
+        return backup == current ? .systemTone : .modified
     }
 
     private func readTones(using backend: AccessBackend) async throws -> [Data] {
