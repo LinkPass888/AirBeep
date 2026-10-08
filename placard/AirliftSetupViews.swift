@@ -1,5 +1,36 @@
 import SwiftUI
 import UIKit
+import Network
+import Combine
+
+@MainActor
+final class AirliftWiFiMonitor: ObservableObject {
+    enum Status {
+        case checking
+        case connected
+        case disconnected
+    }
+
+    @Published private(set) var status: Status = .checking
+
+    private let monitor = NWPathMonitor(requiredInterfaceType: .wifi)
+    private let queue = DispatchQueue(label: "me.ssus.placard.airlift.wifi-monitor")
+
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            let status: Status = path.status == .satisfied ? .connected : .disconnected
+            DispatchQueue.main.async {
+                self?.status = status
+            }
+        }
+        monitor.start(queue: queue)
+    }
+
+    deinit {
+        monitor.cancel()
+    }
+}
+
 
 struct AirliftWiFiCheckingView: View {
     var body: some View {
