@@ -29,9 +29,9 @@ for library in \
 do
   for symbol in al_exploit_read_file al_bytes_free al_set_target_host; do
     found=false
-    if "$NM" -gU "$library" 2>/dev/null | grep -Eq "_${symbol}($|[[:space:]])"; then
+    if "$NM" -gU "$library" 2>/dev/null | grep -q "_${symbol}"; then
       found=true
-    elif strings "$library" 2>/dev/null | grep -Eq "_${symbol}($|[[:space:]])"; then
+    elif strings "$library" 2>/dev/null | grep -q "_${symbol}"; then
       found=true
     fi
     if [ "$found" = "false" ]; then
