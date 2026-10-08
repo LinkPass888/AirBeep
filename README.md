@@ -24,7 +24,6 @@ The replacement files are based on the silent assets from AirliftSilence and kee
 ## Requirements
 
 - A physical iPhone or iPad running one of the supported iOS/iPadOS releases:
-  - **iOS/iPadOS 26.0 – 26.6.1**
   - **iOS/iPadOS 27.0 – 27.2 B2**
 - Xcode 27 or newer for local builds.
 - The provided GitHub Actions workflow builds an unsigned IPA in the cloud.
