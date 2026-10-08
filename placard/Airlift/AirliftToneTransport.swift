@@ -2,6 +2,11 @@ import AirliftFFI
 import Darwin
 import Foundation
 
+/// `RTLD_DEFAULT` is a C macro (`((void *) -2)`) that Swift cannot import from
+/// the iOS SDK (`dlfcn.h` reports it as "structure not supported"). The value is
+/// platform-stable and well documented, so define the Swift equivalent directly.
+private let RTLD_DEFAULT = UnsafeMutableRawPointer(bitPattern: -2)
+
 struct AirliftToneFile: Sendable {
     let name: String
     let data: Data
