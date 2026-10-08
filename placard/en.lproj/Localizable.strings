@@ -56,5 +56,5 @@
 "Introduction" = "Introduction";
 "AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later." = "AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later.";
 "bad_query failed (%lld)." = "bad_query failed (%lld).";
-"iOS/iPadOS 26.0 or later" = "iOS/iPadOS 26.0 or later";
+"iOS/iPadOS 26.0–26.6.1, or 27.0–27.2 B2" = "iOS/iPadOS 26.0–26.6.1, or 27.0–27.2 B2";
 

@@ -1,13 +1,13 @@
 # AirBeep
 
-AirBeep is an iOS utility that customizes the built-in call-recording disclosure tones. It can replace the start and stop sounds with equal-length silence and restore the original files later.
+AirBeep is an iOS utility that silences the built-in call-recording disclosure tones. Flip one switch to replace the start and stop sounds with equal-length silence; flip it again to restore the original files from the automatic backup.
 
 The original wallpaper browsing, importing, creation, and management features are not part of the AirBeep interface.
 
 ## Features
 
 - One switch to silence the call-recording start and stop tones.
-- Automatic backup of the original tone files before the first change.
+- Automatic backup of the original tone files before the first change — the backup is kept and never overwritten.
 - File read-back verification after every write.
 - One-tap restoration from the local backup.
 - English and Simplified Chinese UI.
@@ -23,7 +23,9 @@ The replacement files are based on the silent assets from AirliftSilence and kee
 
 ## Requirements
 
-- A physical iPhone running a supported iOS release.
+- A physical iPhone or iPad running one of the supported iOS/iPadOS releases:
+  - **iOS/iPadOS 26.0 – 26.6.1**
+  - **iOS/iPadOS 27.0 – 27.2 B2**
 - Xcode 27 or newer for local builds.
 - The provided GitHub Actions workflow builds an unsigned IPA in the cloud.
 
