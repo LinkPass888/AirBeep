@@ -2,6 +2,7 @@ import Combine
 import Network
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 /// Completes the two prerequisites used by the AirLift backend:
 /// an on-device pairing record and the LocalDevVPN loopback connection.
@@ -64,13 +65,11 @@ struct AirBeepAirliftSetupView: View {
                     }
                 }
             }
-            .fileImporter(
-                isPresented: $isImportingPairingFile,
-                allowedContentTypes: [.propertyList, .data, .init(filenameExtension: "plist") ?? .data],
-                allowsMultipleSelection: false
-            ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    importPairingFile(from: url)
+            .sheet(isPresented: $isImportingPairingFile) {
+                PairingFilePickerView { urls in
+                    if let url = urls.first {
+                        importPairingFile(from: url)
+                    }
                 }
             }
         }
@@ -146,6 +145,52 @@ struct AirBeepAirliftSetupView: View {
             } catch {
                 connectionError = error.localizedDescription
             }
+        }
+    }
+}
+
+/// UIDocumentPicker wrapper for importing an on-device pairing plist.
+/// Uses `asCopy: true` (same approach as AirCard) so iOS copies the file into
+/// the app sandbox, avoiding security-scoped read failures on in-place URLs.
+struct PairingFilePickerView: UIViewControllerRepresentable {
+    let onPick: ([URL]) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        var contentTypes: [UTType] = []
+        contentTypes.append(.propertyList)
+        if let plistType = UTType(filenameExtension: "plist") {
+            contentTypes.append(plistType)
+        }
+        contentTypes.append(.data)
+
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes, asCopy: true)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: PairingFilePickerView
+
+        init(_ parent: PairingFilePickerView) {
+            self.parent = parent
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard !urls.isEmpty else { return }
+            parent.onPick(urls)
+            parent.dismiss()
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            parent.dismiss()
         }
     }
 }

@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import UIKit
 
 enum CallRecordingToneError: LocalizedError {
     case unsupported
@@ -52,6 +53,7 @@ final class CallRecordingToneService: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var statusDetail: String?
     @Published private(set) var needsAirliftSetup = false
+    @Published private(set) var busyMessage: String?
 
     private enum AccessBackend {
         case airlift(pairingPath: String)
@@ -122,34 +124,36 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("applySilentTone: start")
 
-        do {
-            let backend = try accessBackend()
-            let current = try await readTones(using: backend)
-            let silent = try silentTones()
-            if current == silent {
-                mode = .silentTone
-                statusDetail = nil
-                needsAirliftSetup = false
-                lastError = nil
-                AirBeepLog.shared.append("applySilentTone: already silent")
-                return
-            }
-
-            try ensureBackup(current)
-            AirBeepLog.shared.append("applySilentTone: backup ensured, writing silence")
+        await withBusyScreen("正在执行静音操作，请不要退出软件") {
             do {
-                try await writeTones(silent, using: backend)
-                mode = .silentTone
-                statusDetail = nil
-                needsAirliftSetup = false
-                lastError = nil
-                AirBeepLog.shared.append("applySilentTone: success")
+                let backend = try accessBackend()
+                let current = try await readTones(using: backend)
+                let silent = try silentTones()
+                if current == silent {
+                    mode = .silentTone
+                    statusDetail = nil
+                    needsAirliftSetup = false
+                    lastError = nil
+                    AirBeepLog.shared.append("applySilentTone: already silent")
+                    return
+                }
+
+                try ensureBackup(current)
+                AirBeepLog.shared.append("applySilentTone: backup ensured, writing silence")
+                do {
+                    try await writeTones(silent, using: backend)
+                    mode = .silentTone
+                    statusDetail = nil
+                    needsAirliftSetup = false
+                    lastError = nil
+                    AirBeepLog.shared.append("applySilentTone: success")
+                } catch {
+                    try? await writeTones(current, using: backend)
+                    throw error
+                }
             } catch {
-                try? await writeTones(current, using: backend)
-                throw error
+                reportOperationError(error)
             }
-        } catch {
-            reportOperationError(error)
         }
     }
 
@@ -159,44 +163,59 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("restoreSystemTone: start")
 
-        do {
-            let backend = try accessBackend()
-            let current = try await readTones(using: backend)
-            // No backup yet means the tones have never been changed, so they are
-            // already the original system tones.
-            guard let backup = try? readBackups() else {
-                mode = .systemTone
-                statusDetail = nil
-                needsAirliftSetup = false
-                lastError = nil
-                AirBeepLog.shared.append("restoreSystemTone: no backup, already original")
-                return
-            }
-            if current == backup {
-                mode = .systemTone
-                statusDetail = nil
-                needsAirliftSetup = false
-                lastError = nil
-                AirBeepLog.shared.append("restoreSystemTone: already original")
-                return
-            }
-
+        await withBusyScreen("正在执行恢复原音操作，请不要退出软件") {
             do {
-                AirBeepLog.shared.append("restoreSystemTone: writing original from backup")
-                try await writeTones(backup, using: backend)
-                mode = .systemTone
-                statusDetail = nil
-                needsAirliftSetup = false
-                lastError = nil
-                AirBeepLog.shared.append("restoreSystemTone: success")
+                let backend = try accessBackend()
+                let current = try await readTones(using: backend)
+                // No backup yet means the tones have never been changed, so they are
+                // already the original system tones.
+                guard let backup = try? readBackups() else {
+                    mode = .systemTone
+                    statusDetail = nil
+                    needsAirliftSetup = false
+                    lastError = nil
+                    AirBeepLog.shared.append("restoreSystemTone: no backup, already original")
+                    return
+                }
+                if current == backup {
+                    mode = .systemTone
+                    statusDetail = nil
+                    needsAirliftSetup = false
+                    lastError = nil
+                    AirBeepLog.shared.append("restoreSystemTone: already original")
+                    return
+                }
+
+                do {
+                    AirBeepLog.shared.append("restoreSystemTone: writing original from backup")
+                    try await writeTones(backup, using: backend)
+                    mode = .systemTone
+                    statusDetail = nil
+                    needsAirliftSetup = false
+                    lastError = nil
+                    AirBeepLog.shared.append("restoreSystemTone: success")
+                } catch {
+                    try? await writeTones(current, using: backend)
+                    throw error
+                }
             } catch {
-                try? await writeTones(current, using: backend)
-                throw error
+                reportOperationError(error)
             }
-        } catch {
-            reportOperationError(error)
         }
     }
+
+    /// Keeps the screen awake and shows a warning banner while an operation
+    /// runs, then restores normal idle behaviour.
+    private func withBusyScreen(_ message: String, operation: @escaping () async -> Void) async {
+        busyMessage = message
+        UIApplication.shared.isIdleTimerDisabled = true
+        defer {
+            busyMessage = nil
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+        await operation()
+    }
+
 
     private func reportOperationError(_ error: Error) {
         mode = .unavailable

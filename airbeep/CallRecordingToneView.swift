@@ -11,6 +11,9 @@ struct AirBeepRootView: View {
                 VStack(spacing: 24) {
                     header
                     statusCard
+                    if let busyMessage = service.busyMessage {
+                        busyWarning(message: busyMessage)
+                    }
                     if service.needsAirliftSetup {
                         airliftSetupCard
                     }
@@ -131,6 +134,20 @@ struct AirBeepRootView: View {
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
+    }
+
+    private func busyWarning(message: String) -> some View {
+        Label {
+            Text(message)
+                .font(.headline)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+        }
+        .foregroundStyle(.primary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.red.opacity(0.12), in: .rect(cornerRadius: 16))
     }
 
     private var airliftSetupCard: some View {
