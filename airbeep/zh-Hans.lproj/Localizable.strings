@@ -56,6 +56,7 @@
 "Introduction" = "软件介绍";
 "AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later." = "AirBeep 是一款用于自定义通话录音开始、结束提示音的 iOS 工具，可将系统提示音替换为静音，并随时恢复原始文件。";
 "iOS/iPadOS 18.0–27.2 B2" = "iOS/iPadOS 18.0–27.2 B2";
-"‼️正在执行静音操作，请不要退出软件‼️" = "‼️正在执行静音操作，请不要退出软件‼️";
-"‼️正在执行恢复原音操作，请不要退出软件‼️" = "‼️正在执行恢复原音操作，请不要退出软件‼️";
+"Applying silence to call recording tones…" = "‼️正在执行静音操作，请不要退出软件‼️";
+"Backing up original tones…" = "‼️正在备份原始提示音，请不要退出软件‼️";
+"Restoring original call recording tones…" = "‼️正在执行恢复原音操作，请不要退出软件‼️";
 

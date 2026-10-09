@@ -62,7 +62,9 @@ private let alLogBridge: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer
 
 extension AirBeepLog {
     /// The C callback to hand to `al_exploit_read_file` / `al_exploit_write_dir`.
-    static var ffiCallback: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> Void {
+    /// `@convention(c)` function types are Sendable, so it can be nonisolated and
+    /// passed from AirliftToneTransport's nonisolated static helpers.
+    nonisolated static var ffiCallback: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> Void {
         alLogBridge
     }
 }

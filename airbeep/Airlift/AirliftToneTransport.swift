@@ -4,10 +4,12 @@ import Foundation
 
 /// `RTLD_DEFAULT` is a C macro (`((void *) -2)`) that Swift cannot import from
 /// the iOS SDK (`dlfcn.h` reports it as "structure not supported"). The value is
-/// platform-stable and well documented, so define the Swift equivalent directly.
-/// `nonisolated` keeps it usable from the actor's nonisolated static helpers
-/// under `-default-isolation=MainActor`.
-nonisolated private let RTLD_DEFAULT = UnsafeMutableRawPointer(bitPattern: -2)
+/// platform-stable and well documented, so produce the Swift equivalent on
+/// demand. A plain global constant would be flagged as non-Sendable by strict
+/// concurrency, so this is a small factory function instead.
+private func rtlDefaultHandle() -> UnsafeMutableRawPointer? {
+    UnsafeMutableRawPointer(bitPattern: -2)
+}
 
 struct AirliftToneFile: Sendable {
     let name: String
@@ -65,7 +67,7 @@ actor AirliftToneTransport {
     private static func readSync(path: String, pairingPath: String) throws -> Data {
         configureTargets()
 
-        guard let symbol = dlsym(RTLD_DEFAULT, "al_exploit_read_file") else {
+        guard let symbol = dlsym(rtlDefaultHandle(), "al_exploit_read_file") else {
             throw CallRecordingToneError.airliftUnavailable
         }
         let readFile = unsafeBitCast(symbol, to: ExploitReadFileFn.self)
@@ -144,13 +146,13 @@ actor AirliftToneTransport {
     }
 
     private static func configureTargets() {
-        guard let symbol = dlsym(RTLD_DEFAULT, "al_set_target_host") else { return }
+        guard let symbol = dlsym(rtlDefaultHandle(), "al_set_target_host") else { return }
         let setTarget = unsafeBitCast(symbol, to: SetTargetFn.self)
         _ = "10.7.0.1".withCString { setTarget($0) }
     }
 
     private static func freeBytes(_ pointer: UnsafeMutablePointer<UInt8>, length: Int) {
-        guard let symbol = dlsym(RTLD_DEFAULT, "al_bytes_free") else { return }
+        guard let symbol = dlsym(rtlDefaultHandle(), "al_bytes_free") else { return }
         let freeBytes = unsafeBitCast(symbol, to: BytesFreeFn.self)
         freeBytes(pointer, length)
     }

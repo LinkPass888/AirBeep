@@ -124,35 +124,42 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("applySilentTone: start")
 
-        await withBusyScreen(String(localized: "‼️正在执行静音操作，请不要退出软件‼️")) {
+        await withBusyScreen(String(localized: "Applying silence to call recording tones…")) { [self] in
             do {
                 let backend = try accessBackend()
                 let current = try await readTones(using: backend)
                 let silent = try silentTones()
                 if current == silent {
-                    mode = .silentTone
-                    statusDetail = nil
-                    needsAirliftSetup = false
-                    lastError = nil
+                    self.mode = .silentTone
+                    self.statusDetail = nil
+                    self.needsAirliftSetup = false
+                    self.lastError = nil
                     AirBeepLog.shared.append("applySilentTone: already silent")
                     return
                 }
 
-                try ensureBackup(current)
+                // First change: back up the original tones with an explicit
+                // message so the user knows what is happening.
+                if (try? self.readBackups()) == nil {
+                    self.busyMessage = String(localized: "Backing up original tones…")
+                    _ = try self.ensureBackup(current)
+                    self.busyMessage = String(localized: "Applying silence to call recording tones…")
+                }
+
                 AirBeepLog.shared.append("applySilentTone: backup ensured, writing silence")
                 do {
-                    try await writeTones(silent, using: backend)
-                    mode = .silentTone
-                    statusDetail = nil
-                    needsAirliftSetup = false
-                    lastError = nil
+                    try await self.writeTones(silent, using: backend)
+                    self.mode = .silentTone
+                    self.statusDetail = nil
+                    self.needsAirliftSetup = false
+                    self.lastError = nil
                     AirBeepLog.shared.append("applySilentTone: success")
                 } catch {
-                    try? await writeTones(current, using: backend)
+                    try? await self.writeTones(current, using: backend)
                     throw error
                 }
             } catch {
-                reportOperationError(error)
+                self.reportOperationError(error)
             }
         }
     }
@@ -163,7 +170,7 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("restoreSystemTone: start")
 
-        await withBusyScreen(String(localized: "‼️正在执行恢复原音操作，请不要退出软件‼️")) {
+        await withBusyScreen(String(localized: "Restoring original call recording tones…")) { [self] in
             do {
                 let backend = try accessBackend()
                 let current = try await readTones(using: backend)
@@ -315,9 +322,11 @@ final class CallRecordingToneService: ObservableObject {
             )
     }
 
-    private func ensureBackup(_ current: [Data]) throws {
+    /// Returns `true` if the original tones were actually backed up just now,
+    /// `false` if a backup already existed.
+    private func ensureBackup(_ current: [Data]) throws -> Bool {
         if (try? readBackups()) != nil {
-            return
+            return false
         }
         guard current != (try silentTones()) else {
             throw CallRecordingToneError.missingBackup
@@ -330,6 +339,7 @@ final class CallRecordingToneService: ObservableObject {
         for (file, data) in zip(files, current) {
             try data.write(to: backupURL(for: file), options: .atomic)
         }
+        return true
     }
 
     private func readBackups() throws -> [Data] {
