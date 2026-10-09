@@ -1,4 +1,4 @@
-# AirBeep（艾比）
+# AirBeep
 
 > 🌍 **Languages:** [English](./README.md) | 简体中文
 
