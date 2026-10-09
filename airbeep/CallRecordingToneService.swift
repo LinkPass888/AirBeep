@@ -124,7 +124,7 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("applySilentTone: start")
 
-        await withBusyScreen(String(localized: "Applying silence to call recording tones…")) { [self] in
+        await withBusyScreen(String(localized: "Applying silence to call recording tones")) { [self] in
             do {
                 let backend = try accessBackend()
                 let current = try await readTones(using: backend)
@@ -138,14 +138,7 @@ final class CallRecordingToneService: ObservableObject {
                     return
                 }
 
-                // First change: back up the original tones with an explicit
-                // message so the user knows what is happening.
-                if (try? self.readBackups()) == nil {
-                    self.busyMessage = String(localized: "Backing up original tones…")
-                    _ = try self.ensureBackup(current)
-                    self.busyMessage = String(localized: "Applying silence to call recording tones…")
-                }
-
+                try self.ensureBackup(current)
                 AirBeepLog.shared.append("applySilentTone: backup ensured, writing silence")
                 do {
                     try await self.writeTones(silent, using: backend)
@@ -170,7 +163,7 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("restoreSystemTone: start")
 
-        await withBusyScreen(String(localized: "Restoring original call recording tones…")) { [self] in
+        await withBusyScreen(String(localized: "Restoring original call recording tones")) { [self] in
             do {
                 let backend = try accessBackend()
                 let current = try await readTones(using: backend)
@@ -322,11 +315,9 @@ final class CallRecordingToneService: ObservableObject {
             )
     }
 
-    /// Returns `true` if the original tones were actually backed up just now,
-    /// `false` if a backup already existed.
-    private func ensureBackup(_ current: [Data]) throws -> Bool {
+    private func ensureBackup(_ current: [Data]) throws {
         if (try? readBackups()) != nil {
-            return false
+            return
         }
         guard current != (try silentTones()) else {
             throw CallRecordingToneError.missingBackup
@@ -339,7 +330,6 @@ final class CallRecordingToneService: ObservableObject {
         for (file, data) in zip(files, current) {
             try data.write(to: backupURL(for: file), options: .atomic)
         }
-        return true
     }
 
     private func readBackups() throws -> [Data] {
