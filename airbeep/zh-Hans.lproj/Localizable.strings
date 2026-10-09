@@ -1,13 +1,6 @@
 "OK" = "好";
 "Done" = "完成";
 "Cancel" = "取消";
-"The target path is not absolute." = "目标路径不是绝对路径。";
-"The target path does not exist." = "目标路径不存在。";
-"Unable to load containermanager." = "无法载入 containermanager。";
-"Unable to create the container query." = "无法创建 container query。";
-"The container query returned no target." = "container query 没有返回目标。";
-"The system rejected the sandbox extension." = "系统拒绝了 sandbox extension。";
-"Unable to construct the query path." = "无法构造查询路径。";
 "Pair this iPhone" = "配对这台 iPhone";
 "Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with AirBeep." = "开始配对后，前往“设置 › 隐私与安全性 › 开发者模式 › 与 AirBeep 配对”。";
 "Waiting for pairing…" = "等待配对…";
@@ -54,8 +47,13 @@
 "LinkPass888 Channel" = "LinkPass888 频道";
 "About AirBeep" = "软件介绍";
 "Introduction" = "软件介绍";
-"AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later." = "AirBeep 是一款用于自定义通话录音开始、结束提示音的 iOS 工具，可将系统提示音替换为静音，并随时恢复原始文件。";
 "iOS/iPadOS 18.0–27.2 B2" = "iOS/iPadOS 18.0–27.2 B2";
 "Applying silence to call recording tones" = "正在执行静音操作，请不要退出软件";
 "Restoring original call recording tones" = "正在执行恢复原音操作，请不要退出软件";
+"Runtime Log" = "运行日志";
+"Logs include pairing, tunnel and AirLift file operations." = "日志包含配对、隧道和 AirLift 文件操作记录。";
+"Export Log" = "导出日志";
+"Clear Log" = "清除日志";
+"AirBeep silences the call-recording disclosure tone with one switch. Original tones are backed up before the first change and restored when the switch is turned off." = "AirBeep 用一个开关即可将通话录音提示音静音。首次修改前会自动备份原始提示音，关闭开关后即可恢复。";
+"Supported system: %@" = "支持的系统：%@";
 

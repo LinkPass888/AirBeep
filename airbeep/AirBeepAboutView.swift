@@ -25,7 +25,12 @@ struct AirBeepAboutView: View {
                 }
 
                 Section("Introduction") {
-                    Text("AirBeep silences the call-recording disclosure tone with one switch. The original system tones are backed up before the first change and restored when the switch is turned off. Supported system: \(SystemCompatibility.supportedRangeDescription).")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("AirBeep silences the call-recording disclosure tone with one switch. Original tones are backed up before the first change and restored when the switch is turned off.")
+                        Text("Supported system: \(SystemCompatibility.supportedRangeDescription)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("Runtime Log") {

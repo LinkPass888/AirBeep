@@ -1,13 +1,6 @@
 "OK" = "OK";
 "Done" = "Done";
 "Cancel" = "Cancel";
-"The target path is not absolute." = "The target path is not absolute.";
-"The target path does not exist." = "The target path does not exist.";
-"Unable to load containermanager." = "Unable to load containermanager.";
-"Unable to create the container query." = "Unable to create the container query.";
-"The container query returned no target." = "The container query returned no target.";
-"The system rejected the sandbox extension." = "The system rejected the sandbox extension.";
-"Unable to construct the query path." = "Unable to construct the query path.";
 "Pair this iPhone" = "Pair this iPhone";
 "Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with AirBeep." = "Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with AirBeep.";
 "Waiting for pairing…" = "Waiting for pairing…";
@@ -54,8 +47,13 @@
 "LinkPass888 Channel" = "LinkPass888 Channel";
 "About AirBeep" = "About AirBeep";
 "Introduction" = "Introduction";
-"AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later." = "AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later.";
 "iOS/iPadOS 18.0–27.2 B2" = "iOS/iPadOS 18.0–27.2 B2";
 "Applying silence to call recording tones" = "Applying silence. Do not exit the app.";
 "Restoring original call recording tones" = "Restoring original tones. Do not exit the app.";
+"Runtime Log" = "Runtime Log";
+"Logs include pairing, tunnel and AirLift file operations." = "Logs include pairing, tunnel and AirLift file operations.";
+"Export Log" = "Export Log";
+"Clear Log" = "Clear Log";
+"AirBeep silences the call-recording disclosure tone with one switch. Original tones are backed up before the first change and restored when the switch is turned off." = "AirBeep silences the call-recording disclosure tone with one switch. Original tones are backed up before the first change and restored when the switch is turned off.";
+"Supported system: %@" = "Supported system: %@";
 
