@@ -124,7 +124,7 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("applySilentTone: start")
 
-        await withBusyScreen("正在执行静音操作，请不要退出软件") {
+        await withBusyScreen(String(localized: "‼️正在执行静音操作，请不要退出软件‼️")) {
             do {
                 let backend = try accessBackend()
                 let current = try await readTones(using: backend)
@@ -163,7 +163,7 @@ final class CallRecordingToneService: ObservableObject {
         defer { isBusy = false }
         AirBeepLog.shared.append("restoreSystemTone: start")
 
-        await withBusyScreen("正在执行恢复原音操作，请不要退出软件") {
+        await withBusyScreen(String(localized: "‼️正在执行恢复原音操作，请不要退出软件‼️")) {
             do {
                 let backend = try accessBackend()
                 let current = try await readTones(using: backend)
