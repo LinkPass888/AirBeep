@@ -25,7 +25,20 @@ struct AirBeepAboutView: View {
                 }
 
                 Section("Introduction") {
-                    Text("AirBeep is an iOS utility for customizing the disclosure sound played when call recording starts and stops. It can replace the system tones with silence and restore the original files later.")
+                    Text("AirBeep silences the call-recording disclosure tone with one switch. The original system tones are backed up before the first change and restored when the switch is turned off. Supported system: \(SystemCompatibility.supportedRangeDescription).")
+                }
+
+                Section("Runtime Log") {
+                    Label("Logs include pairing, tunnel and AirLift file operations.", systemImage: "list.bullet.rectangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    ShareLink(item: AirBeepLog.shared.exportText()) {
+                        Label("Export Log", systemImage: "square.and.arrow.up")
+                    }
+                    Button("Clear Log", role: .destructive) {
+                        AirBeepLog.shared.clear()
+                    }
+                    .font(.footnote)
                 }
 
                 Section("Author") {
@@ -74,8 +87,8 @@ struct AirBeepAboutView: View {
     }
 
     private var versionText: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.1.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "3"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.2.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "4"
         return "Version \(version) (\(build))"
     }
 }

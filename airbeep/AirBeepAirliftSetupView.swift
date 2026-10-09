@@ -1,8 +1,9 @@
 import Combine
 import Network
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Completes the two prerequisites used by the iOS 27+ AirLift backend:
+/// Completes the two prerequisites used by the AirLift backend:
 /// an on-device pairing record and the LocalDevVPN loopback connection.
 struct AirBeepAirliftSetupView: View {
     @Environment(\.dismiss) private var dismiss
@@ -16,6 +17,7 @@ struct AirBeepAirliftSetupView: View {
     @State private var checking = false
     @State private var pairingError: String?
     @State private var connectionError: String?
+    @State private var isImportingPairingFile = false
 
     var body: some View {
         NavigationStack {
@@ -44,7 +46,10 @@ struct AirBeepAirliftSetupView: View {
                             running: pairing.running,
                             pin: pairing.pairingPIN,
                             error: pairingError,
-                            onStart: startPairing
+                            onStart: startPairing,
+                            onImportPairingFile: {
+                                isImportingPairingFile = true
+                            }
                         )
                     }
                 }
@@ -59,6 +64,36 @@ struct AirBeepAirliftSetupView: View {
                     }
                 }
             }
+            .fileImporter(
+                isPresented: $isImportingPairingFile,
+                allowedContentTypes: [.propertyList, .data, .init(filenameExtension: "plist") ?? .data],
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    importPairingFile(from: url)
+                }
+            }
+        }
+    }
+
+    private func importPairingFile(from url: URL) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        guard let data = try? Data(contentsOf: url), !data.isEmpty else {
+            pairingError = "The selected file is empty or could not be read."
+            return
+        }
+        let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
+        AirBeepLog.shared.append("imported pairing file: \(url.path)")
+        if FileManager.default.fileExists(atPath: adopted) {
+            paired = true
+            pairingError = nil
+        } else {
+            pairingError = "The pairing file could not be adopted."
         }
     }
 

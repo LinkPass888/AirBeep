@@ -78,7 +78,7 @@ actor AirliftToneTransport {
                 readFile(
                     pairingCString,
                     pathCString,
-                    nil,
+                    AirBeepLog.ffiCallback,
                     nil,
                     &output,
                     &outputLength,
@@ -125,7 +125,7 @@ actor AirliftToneTransport {
                         pairingCString,
                         sourceCString,
                         targetCString,
-                        nil,
+                        AirBeepLog.ffiCallback,
                         nil,
                         &outputError
                     )

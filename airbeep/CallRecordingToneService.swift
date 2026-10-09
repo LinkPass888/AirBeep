@@ -54,7 +54,6 @@ final class CallRecordingToneService: ObservableObject {
     @Published private(set) var needsAirliftSetup = false
 
     private enum AccessBackend {
-        case badQuery
         case airlift(pairingPath: String)
     }
 
@@ -97,16 +96,19 @@ final class CallRecordingToneService: ObservableObject {
 
         do {
             let backend = try accessBackend()
+            AirBeepLog.shared.append("refresh: reading current tones")
             mode = try await inspectMode(using: backend)
             statusDetail = nil
             needsAirliftSetup = false
             lastError = nil
+            AirBeepLog.shared.append("refresh: mode = \(mode)")
         } catch {
             mode = .unavailable
             statusDetail = error.localizedDescription
             needsAirliftSetup = shouldOfferAirliftSetup(for: error)
             // Initial inspection must not pop an alert when setup is incomplete.
             lastError = nil
+            AirBeepLog.shared.append("refresh failed: \(error.localizedDescription)")
         }
     }
 
@@ -118,6 +120,7 @@ final class CallRecordingToneService: ObservableObject {
         guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
+        AirBeepLog.shared.append("applySilentTone: start")
 
         do {
             let backend = try accessBackend()
@@ -128,16 +131,19 @@ final class CallRecordingToneService: ObservableObject {
                 statusDetail = nil
                 needsAirliftSetup = false
                 lastError = nil
+                AirBeepLog.shared.append("applySilentTone: already silent")
                 return
             }
 
             try ensureBackup(current)
+            AirBeepLog.shared.append("applySilentTone: backup ensured, writing silence")
             do {
                 try await writeTones(silent, using: backend)
                 mode = .silentTone
                 statusDetail = nil
                 needsAirliftSetup = false
                 lastError = nil
+                AirBeepLog.shared.append("applySilentTone: success")
             } catch {
                 try? await writeTones(current, using: backend)
                 throw error
@@ -151,6 +157,7 @@ final class CallRecordingToneService: ObservableObject {
         guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
+        AirBeepLog.shared.append("restoreSystemTone: start")
 
         do {
             let backend = try accessBackend()
@@ -162,6 +169,7 @@ final class CallRecordingToneService: ObservableObject {
                 statusDetail = nil
                 needsAirliftSetup = false
                 lastError = nil
+                AirBeepLog.shared.append("restoreSystemTone: no backup, already original")
                 return
             }
             if current == backup {
@@ -169,15 +177,18 @@ final class CallRecordingToneService: ObservableObject {
                 statusDetail = nil
                 needsAirliftSetup = false
                 lastError = nil
+                AirBeepLog.shared.append("restoreSystemTone: already original")
                 return
             }
 
             do {
+                AirBeepLog.shared.append("restoreSystemTone: writing original from backup")
                 try await writeTones(backup, using: backend)
                 mode = .systemTone
                 statusDetail = nil
                 needsAirliftSetup = false
                 lastError = nil
+                AirBeepLog.shared.append("restoreSystemTone: success")
             } catch {
                 try? await writeTones(current, using: backend)
                 throw error
@@ -192,6 +203,7 @@ final class CallRecordingToneService: ObservableObject {
         statusDetail = error.localizedDescription
         needsAirliftSetup = shouldOfferAirliftSetup(for: error)
         lastError = error.localizedDescription
+        AirBeepLog.shared.append("operation error: \(error.localizedDescription)")
     }
 
     private func accessBackend() throws -> AccessBackend {
@@ -199,18 +211,13 @@ final class CallRecordingToneService: ObservableObject {
             throw CallRecordingToneError.unsupported
         }
 
-        let majorVersion = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
-        if majorVersion >= 27 || !BadQuery.isAvailable {
-            let pairingPath = PairingController.pairingFilePath()
-            let attributes = try? FileManager.default.attributesOfItem(atPath: pairingPath)
-            let size = attributes?[.size] as? Int ?? 0
-            guard size > 0 else {
-                throw CallRecordingToneError.pairingRequired
-            }
-            return .airlift(pairingPath: pairingPath)
+        let pairingPath = PairingController.pairingFilePath()
+        let attributes = try? FileManager.default.attributesOfItem(atPath: pairingPath)
+        let size = attributes?[.size] as? Int ?? 0
+        guard size > 0 else {
+            throw CallRecordingToneError.pairingRequired
         }
-
-        return .badQuery
+        return .airlift(pairingPath: pairingPath)
     }
 
     private func shouldOfferAirliftSetup(for error: Error) -> Bool {
@@ -219,8 +226,7 @@ final class CallRecordingToneService: ObservableObject {
         case .pairingRequired, .airliftUnavailable, .airliftFailed:
             return true
         case .toneReadFailed:
-            return ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
-                || !BadQuery.isAvailable
+            return true
         case .unsupported, .missingTone, .missingBackup, .invalidToneBundle, .verificationFailed:
             return false
         }
@@ -238,8 +244,6 @@ final class CallRecordingToneService: ObservableObject {
         for file in files {
             do {
                 switch backend {
-                case .badQuery:
-                    tones.append(try BadQuery.readData(at: file.systemPath))
                 case .airlift(let pairingPath):
                     tones.append(
                         try await AirliftToneTransport.shared.read(
@@ -325,10 +329,6 @@ final class CallRecordingToneService: ObservableObject {
 
     private func writeTones(_ tones: [Data], using backend: AccessBackend) async throws {
         switch backend {
-        case .badQuery:
-            for (file, data) in zip(files, tones) {
-                try BadQuery.writeData(data, to: file.systemPath)
-            }
         case .airlift(let pairingPath):
             let payload = zip(files, tones).map {
                 AirliftToneFile(name: $0.name, data: $1)

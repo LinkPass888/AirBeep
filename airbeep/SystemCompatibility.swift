@@ -1,17 +1,21 @@
 import Foundation
 
-/// Runtime feature detection is handled by the AirLift/BadQuery access layer.
-/// Do not reject a build from a static allow-list: iOS 26.0-26.6.1 and
-/// 27.0-27.2 B2 are supported, and every 27.x build exposes the same operating
-/// system version tuple while their build numbers differ. A false negative here
-/// is worse than letting the access layer report the actual error.
+/// Supported system range follows the airlift AirTraffic sandbox escape:
+/// iOS/iPadOS 18.0 through 27.2 B2. Versions outside this range are not
+/// supported and the access layer reports the actual error at runtime.
 enum SystemCompatibility {
     static var isSupported: Bool {
         let version = ProcessInfo.processInfo.operatingSystemVersion
-        return version.majorVersion >= 26
+        guard version.majorVersion >= 18 else { return false }
+        if version.majorVersion > 27 { return false }
+        if version.majorVersion == 27 {
+            if version.minorVersion > 2 { return false }
+            if version.minorVersion == 2, version.patchVersion > 0 { return false }
+        }
+        return true
     }
 
     static var supportedRangeDescription: String {
-        String(localized: "iOS/iPadOS 26.0–26.6.1, or 27.0–27.2 B2")
+        String(localized: "iOS/iPadOS 18.0–27.2 B2")
     }
 }
