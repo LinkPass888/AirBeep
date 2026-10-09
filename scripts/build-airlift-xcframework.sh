@@ -34,7 +34,7 @@ cp -R "$BUILD_ROOT/AirliftFFI.xcframework" "$ROOT/Vendor/AirCard/AirliftFFI.xcfr
 cd "$ROOT"
 {
   find Vendor/AirCard/AirliftFFI.xcframework -type f -print
-  printf '%s\n' placard/Airlift/GrappaHelper.h placard/Airlift/GrappaHelper.m
+  printf '%s\n' airbeep/Airlift/GrappaHelper.h airbeep/Airlift/GrappaHelper.m
 } | LC_ALL=C sort | xargs shasum -a 256 > Vendor/AirCard/SHA256SUMS
 
 echo "Built patched AirliftFFI from AirCard-iOS $AIRCARD_COMMIT"

@@ -38,7 +38,7 @@ jobs:
 
       - name: Read app version
         run: |
-          VERSION=$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' placard.xcodeproj/project.pbxproj | head -n 1)
+          VERSION=$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' airbeep.xcodeproj/project.pbxproj | head -n 1)
           test -n "$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
@@ -49,23 +49,23 @@ jobs:
       - name: Build unsigned archive
         run: |
           xcodebuild archive \
-            -project placard.xcodeproj \
-            -scheme placard \
+            -project airbeep.xcodeproj \
+            -scheme airbeep \
             -configuration Release \
             -destination "generic/platform=iOS" \
-            -archivePath "$RUNNER_TEMP/placard.xcarchive" \
+            -archivePath "$RUNNER_TEMP/airbeep.xcarchive" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Verify archived Airlift integration
-        run: bash scripts/verify-airlift.sh "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" "$VERSION"
+        run: bash scripts/verify-airlift.sh "$RUNNER_TEMP/airbeep.xcarchive/Products/Applications/airbeep.app" "$VERSION"
 
       - name: Package unsigned IPA
         run: |
           mkdir -p "$RUNNER_TEMP/Payload"
           cp -R \
-            "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" \
+            "$RUNNER_TEMP/airbeep.xcarchive/Products/Applications/airbeep.app" \
             "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
           zip -qry "airbeep-v${VERSION}-unsigned.ipa" Payload

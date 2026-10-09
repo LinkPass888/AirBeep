@@ -14,7 +14,7 @@ import tempfile
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-source = (ROOT / 'placard/Airlift/TendiesEngine.swift').read_text()
+source = (ROOT / 'airbeep/Airlift/TendiesEngine.swift').read_text()
 
 
 def section(start, end):
@@ -26,7 +26,7 @@ find = source[source.index('    private func findDescriptorsWithExtensions'):sou
 # Execute the actual preparation block used immediately before Airlift injection.
 prepare = section('                let targetUUID = descItem.preservesIdentifiers', '                for sVer in versionsToWrite')
 
-with tempfile.TemporaryDirectory(prefix='placard-tendies-test-') as tmp:
+with tempfile.TemporaryDirectory(prefix='airbeep-tendies-test-') as tmp:
     tmp = pathlib.Path(tmp)
     fixtures = tmp / 'fixtures'
     store = 'Library/Application Support/PRBPosterExtensionDataStore/61/Extensions'

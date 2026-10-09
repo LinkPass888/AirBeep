@@ -72,7 +72,7 @@ fi
 app_path="$1"
 expected_version="$2"
 # Rust resolves this symbol with dlsym, so a successful link alone is insufficient.
-exports=$(xcrun dyld_info -exports "$app_path/placard")
+exports=$(xcrun dyld_info -exports "$app_path/airbeep")
 for symbol in _ALGetGrappaToken _al_exploit_read_file _al_bytes_free _al_set_target_host; do
   if ! grep -q "${symbol}$" <<< "$exports"; then
     echo "Archive is missing exported symbol $symbol" >&2

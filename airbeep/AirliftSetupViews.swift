@@ -14,7 +14,7 @@ final class AirliftWiFiMonitor: ObservableObject {
     @Published private(set) var status: Status = .checking
 
     private let monitor = NWPathMonitor(requiredInterfaceType: .wifi)
-    private let queue = DispatchQueue(label: "me.ssus.placard.airlift.wifi-monitor")
+    private let queue = DispatchQueue(label: "me.ssus.airbeep.airlift.wifi-monitor")
 
     init() {
         monitor.pathUpdateHandler = { [weak self] path in
@@ -58,7 +58,7 @@ struct AirliftWiFiRequiredView: View {
                 .font(.largeTitle.bold())
             Text("Airlift requires an active Wi-Fi connection. LocalDevVPN does not work over cellular.")
                 .foregroundStyle(.secondary)
-            Text("Connect this iPhone to a Wi-Fi network to continue. Placard will continue automatically once Wi-Fi is available.")
+            Text("Connect this iPhone to a Wi-Fi network to continue. AirBeep will continue automatically once Wi-Fi is available.")
                 .foregroundStyle(.secondary)
             Spacer()
         }

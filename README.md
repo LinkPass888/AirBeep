@@ -32,7 +32,7 @@ The replacement files are based on the silent assets from AirliftSilence and kee
 
 ## Build
 
-Open `placard.xcodeproj`, select the `placard` target, set your signing team, and build to a physical device.
+Open `airbeep.xcodeproj`, select the `airbeep` target, set your signing team, and build to a physical device.
 
 For an unsigned IPA, run the `Release unsigned IPA` workflow in GitHub Actions. The artifact is named `airbeep-v<version>-unsigned.ipa`.
 

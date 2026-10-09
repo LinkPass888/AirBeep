@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct PlacardApp: App {
+struct AirBeepApp: App {
     var body: some Scene {
         WindowGroup {
             AirBeepRootView()
