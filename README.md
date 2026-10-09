@@ -4,7 +4,6 @@
 
 AirBeep is an iOS utility that silences the built-in call-recording disclosure tones. Flip one switch to replace the start and stop sounds with equal-length silence; flip it again to restore the original files from the automatic backup.
 
-The original wallpaper browsing, importing, creation, and management features are not part of the AirBeep interface.
 
 ## Features
 
