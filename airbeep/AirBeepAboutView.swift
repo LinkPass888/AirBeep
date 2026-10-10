@@ -46,31 +46,10 @@ struct AirBeepAboutView: View {
                     .font(.footnote)
                 }
 
-                Section("Author") {
-                    Link(destination: URL(string: "https://t.me/LinkPass888")!) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("LinkPass888")
-                                Text("https://t.me/LinkPass888")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "person.crop.circle.fill")
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                }
-
                 Section("Telegram Channel") {
                     Link(destination: URL(string: "https://t.me/linkpass666")!) {
                         Label {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("LinkPass888 Channel")
-                                Text("https://t.me/linkpass666")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text("Follow Channel")
                         } icon: {
                             Image(systemName: "paperplane.fill")
                                 .foregroundStyle(.orange)

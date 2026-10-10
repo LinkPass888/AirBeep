@@ -24,6 +24,7 @@
 "Silence recording tone" = "Silence recording tone";
 "Original tones are backed up before the first change." = "Original tones are backed up before the first change.";
 "Start and stop sounds are replaced with equal-length silence." = "Start and stop sounds are replaced with equal-length silence.";
+"Changing the system language will force the original tones back." = "Changing the system language will force the original tones back.";
 "This app relies on non-public system behavior. Use it carefully." = "This app relies on non-public system behavior. Use it carefully.";
 "Operation Failed" = "Operation Failed";
 "This device or system version is not supported." = "This device or system version is not supported.";
@@ -42,9 +43,8 @@
 "Airlift Ready" = "Airlift Ready";
 "Pairing and LocalDevVPN are ready. Return to AirBeep to read or change the recording tones." = "Pairing and LocalDevVPN are ready. Return to AirBeep to read or change the recording tones.";
 "About" = "About";
-"Author" = "Author";
 "Telegram Channel" = "Telegram Channel";
-"LinkPass888 Channel" = "LinkPass888 Channel";
+"Follow Channel" = "Follow Channel";
 "About AirBeep" = "About AirBeep";
 "Introduction" = "Introduction";
 "iOS/iPadOS 18.0–27.2 B2" = "iOS/iPadOS 18.0–27.2 B2";

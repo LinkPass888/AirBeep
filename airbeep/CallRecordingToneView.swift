@@ -176,6 +176,7 @@ struct AirBeepRootView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Original tones are backed up before the first change.", systemImage: "checkmark.shield")
             Label("Start and stop sounds are replaced with equal-length silence.", systemImage: "waveform.slash")
+            Label("Changing the system language will force the original tones back.", systemImage: "globe")
             Label("This app relies on non-public system behavior. Use it carefully.", systemImage: "exclamationmark.triangle")
         }
         .font(.footnote)

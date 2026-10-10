@@ -24,6 +24,7 @@
 "Silence recording tone" = "静音录音提示音";
 "Original tones are backed up before the first change." = "首次修改前会自动备份原始提示音。";
 "Start and stop sounds are replaced with equal-length silence." = "开始和结束提示音会替换为等长静音。";
+"Changing the system language will force the original tones back." = "更改系统语言即可强制恢复原始提示音。";
 "This app relies on non-public system behavior. Use it carefully." = "此软件依赖非公开系统行为，请谨慎使用。";
 "Operation Failed" = "操作失败";
 "This device or system version is not supported." = "当前设备或系统版本不受支持。";
@@ -42,9 +43,8 @@
 "Airlift Ready" = "Airlift 已就绪";
 "Pairing and LocalDevVPN are ready. Return to AirBeep to read or change the recording tones." = "配对和 LocalDevVPN 已就绪，请返回 AirBeep 读取或修改录音提示音。";
 "About" = "关于";
-"Author" = "作者";
 "Telegram Channel" = "Telegram 频道";
-"LinkPass888 Channel" = "LinkPass888 频道";
+"Follow Channel" = "关注频道";
 "About AirBeep" = "软件介绍";
 "Introduction" = "软件介绍";
 "iOS/iPadOS 18.0–27.2 B2" = "iOS/iPadOS 18.0–27.2 B2";
