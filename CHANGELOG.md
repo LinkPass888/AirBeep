@@ -4,6 +4,32 @@ All notable changes to **AirBeep** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.0] - 2026-10-10
+
+> **English** — Release notes. | **中文** — 发行说明见下方中文版。
+
+### English / Changed
+- Removed the automatic tone-state check that ran at app launch. Some users saw
+  a startup check get stuck and the switch stay disabled because the underlying
+  airlift read could not finish on their iOS release. The app now restores the
+  last known state from cache and performs no file access until the user flips
+  the switch.
+- If anything goes wrong with the tones, you can force the original system
+  tones back by changing the system language on the device.
+
+---
+
+### 中文 / 变更
+- 移除 app 启动时自动执行的提示音文件状态校验。此前部分用户会因启动校验
+  卡住、开关一直处于灰色不可用状态——其根本原因是底层 airlift 读取在部分
+  iOS 版本上无法完成。现在打开 app 不再做任何文件读取，改为从本地缓存恢复
+  上次的状态，仅在用户拨动开关时才进行实际操作。
+- 若提示音出现异常，可通过**更改系统语言**强制恢复为系统默认提示音。
+
+---
+
+**Full Changelog**: [v2.3.0...v2.4.0](https://github.com/LinkPass888/AirBeep/compare/v2.3.0...v2.4.0)
+
 ## [2.3.0] - 2026-10-09
 
 > **English** — Release notes. | **中文** — 发行说明见下方中文版。
