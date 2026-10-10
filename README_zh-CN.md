@@ -25,7 +25,7 @@ AirBeep 会请求以下系统文件的容器级访问权限：
 ## 系统要求
 
 - 一台受支持的 iOS/iPadOS 系统的实体 iPhone 或 iPad：
-  - **iOS/iPadOS 18.0 – 27.2 B2**
+  - **iOS/iPadOS 27.0 – 27.2 B2**
 - 本地构建需 Xcode 27 或更高版本。
 - 仓库提供的 GitHub Actions 工作流可在云端构建 unsigned IPA。
 
