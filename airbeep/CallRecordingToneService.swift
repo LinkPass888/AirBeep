@@ -46,7 +46,13 @@ private enum ToneModeCache {
     private static let key = "CallRecordingToneMode"
 
     static func load() -> CallRecordingToneService.ToneMode? {
-        let raw = UserDefaults.standard.integer(forKey: key)
+        // object(forKey:) returns nil when the key was never set, so a fresh
+        // install (or a now-fixed older build that stored nothing) does not map
+        // onto .checking (raw 0). integer(forKey:) would return 0 here and
+        // wrongly put the UI into the disabled "Checking..." state.
+        guard let raw = UserDefaults.standard.object(forKey: key) as? Int else {
+            return nil
+        }
         return CallRecordingToneService.ToneMode(rawValue: raw)
     }
 
