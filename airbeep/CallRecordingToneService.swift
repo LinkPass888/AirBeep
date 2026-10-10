@@ -37,13 +37,31 @@ enum CallRecordingToneError: LocalizedError {
     }
 }
 
+/// Persists the last known tone mode so the UI can restore state without
+/// probing the system files on launch. Verifying the current disclosure tone
+/// requires an airlift read, which is unreliable on some iOS releases, so we
+/// never read at app-open; the stored mode is trusted until the user flips the
+/// switch (a real write) or performs an explicit re-check.
+private enum ToneModeCache {
+    private static let key = "CallRecordingToneMode"
+
+    static func load() -> CallRecordingToneService.ToneMode? {
+        let raw = UserDefaults.standard.integer(forKey: key)
+        return CallRecordingToneService.ToneMode(rawValue: raw)
+    }
+
+    static func save(_ mode: CallRecordingToneService.ToneMode) {
+        UserDefaults.standard.set(mode.rawValue, forKey: key)
+    }
+}
+
 @MainActor
 final class CallRecordingToneService: ObservableObject {
-    enum ToneMode: Equatable {
-        case checking
-        case systemTone
-        case silentTone
-        case unavailable
+    enum ToneMode: Int, Equatable {
+        case checking = 0
+        case systemTone = 1
+        case silentTone = 2
+        case unavailable = 3
     }
 
     static let shared = CallRecordingToneService()
@@ -96,22 +114,14 @@ final class CallRecordingToneService: ObservableObject {
         isBusy = true
         defer { isBusy = false }
 
-        do {
-            let backend = try accessBackend()
-            AirBeepLog.shared.append("refresh: reading current tones")
-            mode = try await inspectMode(using: backend)
-            statusDetail = nil
-            needsAirliftSetup = false
-            lastError = nil
-            AirBeepLog.shared.append("refresh: mode = \(mode)")
-        } catch {
-            mode = .unavailable
-            statusDetail = error.localizedDescription
-            needsAirliftSetup = shouldOfferAirliftSetup(for: error)
-            // Initial inspection must not pop an alert when setup is incomplete.
-            lastError = nil
-            AirBeepLog.shared.append("refresh failed: \(error.localizedDescription)")
-        }
+        // Never probe the system disclosure files at app-open: airlift reads are
+        // unreliable on some iOS releases and would surface a spurious error.
+        // Restore the last known mode from the cache instead.
+        mode = ToneModeCache.load() ?? .systemTone
+        statusDetail = nil
+        needsAirliftSetup = false
+        lastError = nil
+        AirBeepLog.shared.append("refresh: restored cached mode = \(mode)")
     }
 
     func clearError() {
@@ -134,6 +144,7 @@ final class CallRecordingToneService: ObservableObject {
                     self.statusDetail = nil
                     self.needsAirliftSetup = false
                     self.lastError = nil
+                    ToneModeCache.save(.silentTone)
                     AirBeepLog.shared.append("applySilentTone: already silent")
                     return
                 }
@@ -146,6 +157,7 @@ final class CallRecordingToneService: ObservableObject {
                     self.statusDetail = nil
                     self.needsAirliftSetup = false
                     self.lastError = nil
+                    ToneModeCache.save(.silentTone)
                     AirBeepLog.shared.append("applySilentTone: success")
                 } catch {
                     try? await self.writeTones(current, using: backend)
@@ -174,6 +186,7 @@ final class CallRecordingToneService: ObservableObject {
                     statusDetail = nil
                     needsAirliftSetup = false
                     lastError = nil
+                    ToneModeCache.save(.systemTone)
                     AirBeepLog.shared.append("restoreSystemTone: no backup, already original")
                     return
                 }
@@ -182,6 +195,7 @@ final class CallRecordingToneService: ObservableObject {
                     statusDetail = nil
                     needsAirliftSetup = false
                     lastError = nil
+                    ToneModeCache.save(.systemTone)
                     AirBeepLog.shared.append("restoreSystemTone: already original")
                     return
                 }
@@ -193,6 +207,7 @@ final class CallRecordingToneService: ObservableObject {
                     statusDetail = nil
                     needsAirliftSetup = false
                     lastError = nil
+                    ToneModeCache.save(.systemTone)
                     AirBeepLog.shared.append("restoreSystemTone: success")
                 } catch {
                     try? await writeTones(current, using: backend)
@@ -249,11 +264,6 @@ final class CallRecordingToneService: ObservableObject {
         case .unsupported, .missingTone, .missingBackup, .invalidToneBundle, .verificationFailed:
             return false
         }
-    }
-
-    private func inspectMode(using backend: AccessBackend) async throws -> ToneMode {
-        let current = try await readTones(using: backend)
-        return current == (try silentTones()) ? .silentTone : .systemTone
     }
 
     private func readTones(using backend: AccessBackend) async throws -> [Data] {
