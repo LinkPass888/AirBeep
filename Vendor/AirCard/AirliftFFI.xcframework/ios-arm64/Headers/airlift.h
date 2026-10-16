@@ -89,6 +89,19 @@ int32_t al_exploit_run(const char *pairing_path,
                         char **out_json,
                         char **out_error);
 
+// Read one absolute iOS file through the AirTraffic exploit.
+// `out_data` is heap-allocated and must be released with al_bytes_free(out_data, out_len).
+int32_t al_exploit_read_file(const char *pairing_path,
+                              const char *ios_path,
+                              ALLogCallback log_cb,
+                              void *ctx,
+                              uint8_t **out_data,
+                              size_t *out_len,
+                              char **out_error);
+
+// Free bytes returned by al_exploit_read_file().
+void al_bytes_free(uint8_t *ptr, size_t len);
+
 // Write all files from `source_dir` into `target_dir` on the device.
 // Returns 0 on success, 1 on error (with out_error set).
 int32_t al_exploit_write_dir(const char *pairing_path,
@@ -147,9 +160,27 @@ int32_t al_device_respring(const char *pairing_path,
                           void *ctx,
                           char **out_error);
 
+// ---------------------------------------------------------------------------
+// Target Host Configuration
+// ---------------------------------------------------------------------------
+
+// Set the primary target host/IP (e.g. "10.7.0.1") to dial first for RSD and tunnel operations.
+// Passing NULL or "" resets to None.
+// Returns 0 on success.
+int32_t al_set_target_host(const char *host);
+
+// Set additional candidate target hosts (e.g. from local interface discovery).
+// `hosts` is an array of C-strings of length `count`.
+// Returns 0 on success.
+int32_t al_set_target_hosts(const char *const *hosts, size_t count);
+
+// Clear custom target host settings, reverting to default tunnel IP fallbacks.
+void al_clear_target_hosts(void);
+
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* AIRLIFT_H */
+

@@ -37,6 +37,14 @@ Open `airbeep.xcodeproj`, select the `airbeep` target, set your signing team, an
 
 For an unsigned IPA, run the `Release unsigned IPA` workflow in GitHub Actions. The artifact is named `airbeep-v<version>-unsigned.ipa`.
 
+### Custom connection target
+
+Set the `AIRLIFT_TARGET_HOST` build setting to LocalDevVPN's **Device IP** (default: `10.7.0.1`). The app configures the native library once at startup, so setup checks and tone operations use the same target without resetting it before each file operation.
+
+First rebuild the patched native library with `scripts/build-airlift-xcframework.sh`, then build Release with `DEVELOPMENT_TEAM=<team> AIRLIFT_TARGET_HOST=<peer IP>`.
+
+On iOS 26.4 and later, legacy Lockdown loopback connections also depend on the physical Wi-Fi subnet. Configure both LocalDevVPN addresses for the actual network, check for address conflicts, and use precise routes rather than changing an existing proxy configuration. Reconfigure after changing Wi-Fi subnets. Target selection alone does not guarantee system-file access or successful tone replacement.
+
 ## Credits
 
 - [AirliftSilence](https://github.com/YiHoooong/AirliftSilence) for the silent tone assets and replacement research.
