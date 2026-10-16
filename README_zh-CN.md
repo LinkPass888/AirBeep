@@ -37,6 +37,20 @@ AirBeep 会请求以下系统文件的容器级访问权限：
 
 如需构建 unsigned IPA，请在 GitHub Actions 中运行 `Release unsigned IPA` 工作流。成品文件名为 `airbeep-v<version>-unsigned.ipa`。
 
+### 自构建连接地址
+
+`AIRLIFT_TARGET_HOST` 构建设置用于指定 LocalDevVPN 的 **Device IP**，默认值为 `10.7.0.1`。应用启动时统一设置该地址，连接检查和提示音读写共用同一配置；不再在文件操作前重置目标。
+
+修改此设置前，先用 `scripts/build-airlift-xcframework.sh` 重建仓库补丁对应的原生库，再进行 Release 构建，例如：
+
+```sh
+xcodebuild -project airbeep.xcodeproj -scheme airbeep \
+  -configuration Release -destination 'id=<设备 UDID>' \
+  DEVELOPMENT_TEAM=<签名团队> AIRLIFT_TARGET_HOST=<LocalDevVPN 的 Device IP> build
+```
+
+iOS 26.4 起，旧式 Lockdown 回环连接还受实际 Wi-Fi 网段检查限制。目标地址及 LocalDevVPN 的接口地址应按实际网络配置，不能只复制另一台设备的地址。使用已检查未占用的地址和精确路由，不要修改代理软件的整套分流配置。此设置只解决连接目标选择，不保证系统文件访问或提示音替换成功；更换 Wi-Fi 网段后需重新配置。
+
 ## 致谢 / Credits
 
 - 感谢 [AirliftSilence](https://github.com/YiHoooong/AirliftSilence) 提供的静音音频资源与替换方案研究。

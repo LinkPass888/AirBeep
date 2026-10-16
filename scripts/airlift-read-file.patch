@@ -1,3 +1,15 @@
+diff --git a/rust-core/Cargo.toml b/rust-core/Cargo.toml
+index adcbc89..0692229 100644
+--- a/rust-core/Cargo.toml
++++ b/rust-core/Cargo.toml
+@@ -20,6 +20,7 @@ idevice = { git = "https://github.com/jkcoxson/idevice.git", rev = "7bd551c16c6d
+   "xpc",
+   "core_device_proxy",
+   "afc",
++  "heartbeat",
+   "pair",
+   "usbmuxd",
+   "syslog_relay",
 diff --git a/rust-core/include/airlift.h b/rust-core/include/airlift.h
 index 1ff754d..b7db802 100644
 --- a/rust-core/include/airlift.h
@@ -23,10 +35,139 @@ index 1ff754d..b7db802 100644
  // Returns 0 on success, 1 on error (with out_error set).
  int32_t al_exploit_write_dir(const char *pairing_path,
 diff --git a/rust-core/src/exploit.rs b/rust-core/src/exploit.rs
-index a759c80..664b5a9 100644
+index a759c80..713565f 100644
 --- a/rust-core/src/exploit.rs
 +++ b/rust-core/src/exploit.rs
-@@ -552,6 +552,42 @@ pub unsafe fn run(
+@@ -18,6 +18,7 @@ use idevice::pairing_file::PairingFile;
+ use idevice::provider::{IdeviceProvider, TcpProvider};
+ use idevice::remote_pairing::RpPairingFile;
+ use idevice::services::installation_proxy::InstallationProxyClient;
++use idevice::services::heartbeat::HeartbeatClient;
+ use idevice::services::lockdown::LockdownClient;
+ use idevice::{Idevice, IdeviceService, ReadWrite};
+ use sha2::{Digest, Sha256};
+@@ -66,6 +67,14 @@ impl Logger {
+ // Tunnel & Device Connection Helper (Supports both RSD and Lockdown)
+ // ---------------------------------------------------------------------------
+ 
++struct LockdownHeartbeat(tokio::task::JoinHandle<()>);
++
++impl Drop for LockdownHeartbeat {
++    fn drop(&mut self) {
++        self.0.abort();
++    }
++}
++
+ enum AppDeviceTunnel {
+     Rsd {
+         adapter: idevice::tcp::handle::AdapterHandle,
+@@ -75,10 +84,46 @@ enum AppDeviceTunnel {
+         provider: TcpProvider,
+         pairing_file: PairingFile,
+         legacy: bool,
++        _heartbeat: LockdownHeartbeat,
+     },
+ }
+ 
+ impl AppDeviceTunnel {
++    async fn new_lockdown(
++        provider: TcpProvider,
++        pairing_file: PairingFile,
++        legacy: bool,
++        logger: &Logger,
++    ) -> Result<Self, String> {
++        let stream = connect_service_lockdown(
++            &provider, &pairing_file, legacy, "com.apple.mobile.heartbeat", logger,
++        ).await?;
++        let mut heartbeat = HeartbeatClient::new(Idevice::new(stream, "Airlift"));
++        let mut interval = heartbeat.get_marco(10).await
++            .map_err(|e| format!("Heartbeat initial Marco failed: {e:?}"))?;
++        heartbeat.send_polo().await
++            .map_err(|e| format!("Heartbeat initial Polo failed: {e:?}"))?;
++        logger.log("airlift: Lockdown heartbeat established");
++        let task = tokio::spawn(async move {
++            loop {
++                match heartbeat.get_marco(interval.saturating_add(5)).await {
++                    Ok(next_interval) => interval = next_interval,
++                    Err(error) => {
++                        tracing::warn!("Lockdown heartbeat ended: {error:?}");
++                        break;
++                    }
++                }
++                if let Err(error) = heartbeat.send_polo().await {
++                    tracing::warn!("Lockdown heartbeat reply failed: {error:?}");
++                    break;
++                }
++            }
++        });
++        Ok(Self::Lockdown {
++            provider, pairing_file, legacy, _heartbeat: LockdownHeartbeat(task),
++        })
++    }
++
+     async fn connect_afc(&mut self, logger: &Logger) -> Result<AfcClient, String> {
+         match self {
+             AppDeviceTunnel::Rsd { adapter, handshake } => {
+@@ -87,7 +132,7 @@ impl AppDeviceTunnel {
+                     .await
+                     .map_err(|e| format!("AFC connect over RSD failed: {e:?}"))
+             }
+-            AppDeviceTunnel::Lockdown { provider, pairing_file, legacy } => {
++            AppDeviceTunnel::Lockdown { provider, pairing_file, legacy, .. } => {
+                 let stream = connect_service_lockdown(provider, pairing_file, *legacy, "com.apple.afc", logger).await?;
+                 let idevice = Idevice::new(stream, "Airlift");
+                 Ok(AfcClient::new(idevice))
+@@ -103,7 +148,7 @@ impl AppDeviceTunnel {
+                     .await
+                     .map_err(|e| format!("InstallationProxy connect over RSD failed: {e:?}"))
+             }
+-            AppDeviceTunnel::Lockdown { provider, pairing_file, legacy } => {
++            AppDeviceTunnel::Lockdown { provider, pairing_file, legacy, .. } => {
+                 let stream = connect_service_lockdown(provider, pairing_file, *legacy, "com.apple.mobile.installation_proxy", logger).await?;
+                 let idevice = Idevice::new(stream, "Airlift");
+                 Ok(InstallationProxyClient::new(idevice))
+@@ -116,7 +161,7 @@ impl AppDeviceTunnel {
+             AppDeviceTunnel::Rsd { adapter, handshake } => {
+                 connect_service_rsd(adapter, handshake, service_base, logger).await
+             }
+-            AppDeviceTunnel::Lockdown { provider, pairing_file, legacy } => {
++            AppDeviceTunnel::Lockdown { provider, pairing_file, legacy, .. } => {
+                 connect_service_lockdown(provider, pairing_file, *legacy, service_base, logger).await
+             }
+         }
+@@ -286,11 +331,13 @@ async fn try_lockdown(
+                             host: ip_str.clone(),
+                             mode: CachedRouteMode::Lockdown,
+                         });
+-                        return Some(AppDeviceTunnel::Lockdown {
+-                            provider,
+-                            pairing_file: pf.clone(),
+-                            legacy,
+-                        });
++                        match AppDeviceTunnel::new_lockdown(provider, pf.clone(), legacy, logger).await {
++                            Ok(tunnel) => return Some(tunnel),
++                            Err(error) => {
++                                logger.log(format!("airlift: {error}"));
++                                *last_err = error;
++                            }
++                        }
+                     }
+                     Err(e) => {
+                         let err_msg = format!("lockdownd start_session on {ip_str}:62078 failed: {e:?}");
+@@ -468,11 +515,7 @@ async fn connect_tunnel(pairing_bytes: &[u8], logger: &Logger) -> Result<AppDevi
+                         ).await {
+                             if let Ok(legacy) = lockdown.start_session(pf).await {
+                                 logger.log(format!("airlift: connected via cached Lockdown route on {}:62078 ✅", cached.host));
+-                                return Ok(AppDeviceTunnel::Lockdown {
+-                                    provider,
+-                                    pairing_file: pf.clone(),
+-                                    legacy,
+-                                });
++                                return AppDeviceTunnel::new_lockdown(provider, pf.clone(), legacy, logger).await;
+                             }
+                         }
+                     }
+@@ -552,6 +595,42 @@ pub unsafe fn run(
      }
  }
  
@@ -69,7 +210,7 @@ index a759c80..664b5a9 100644
  /// Write all files in `source_dir` directly to `target_dir` on the device outside the sandbox.
  ///
  /// # Safety
-@@ -1862,6 +1898,293 @@ async fn exploit_device_respring(
+@@ -1862,6 +1941,293 @@ async fn exploit_device_respring(
      }
  }
  

@@ -4,6 +4,17 @@ All notable changes to **AirBeep** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### English / Fixed
+- Configure the native Airlift target once from `AIRLIFT_TARGET_HOST` so setup checks and tone operations share the configured LocalDevVPN peer.
+- Complete the Lockdown heartbeat handshake before accessing network services. Keep the existing heartbeat client alive for each operation and abort its task when the tunnel is dropped, including cached-route connections.
+- Rebuild the pinned native dependency with the file-read and heartbeat patch; retain checksum and exported-symbol verification.
+
+### 中文 / 修复
+- 支持通过构建设置配置 Airlift 连接地址，连接检查与提示音读写共用同一目标。
+- 修复网络 Lockdown 路径缺少 heartbeat 导致服务连接被系统关闭的问题；保活仅限本次操作生命周期。
+
 ## [2.4.0] - 2026-10-10
 
 > **English** — Release notes. | **中文** — 发行说明见下方中文版。

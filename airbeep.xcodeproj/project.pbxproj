@@ -270,6 +270,7 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "airbeep" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				AIRLIFT_TARGET_HOST = 10.7.0.1;
 				ASSETCATALOG_COMPILER_APPICON_NAME = Appicon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 6;
@@ -325,6 +326,7 @@
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "airbeep" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				AIRLIFT_TARGET_HOST = 10.7.0.1;
 				ASSETCATALOG_COMPILER_APPICON_NAME = Appicon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 6;

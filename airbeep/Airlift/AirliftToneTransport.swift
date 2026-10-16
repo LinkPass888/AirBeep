@@ -36,7 +36,6 @@ actor AirliftToneTransport {
     ) -> Int32
 
     private typealias BytesFreeFn = @convention(c) (UnsafeMutablePointer<UInt8>?, Int) -> Void
-    private typealias SetTargetFn = @convention(c) (UnsafePointer<CChar>?) -> Int32
 
     func read(path: String, pairingPath: String) async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
@@ -65,8 +64,6 @@ actor AirliftToneTransport {
     }
 
     private static func readSync(path: String, pairingPath: String) throws -> Data {
-        configureTargets()
-
         guard let symbol = dlsym(rtlDefaultHandle(), "al_exploit_read_file") else {
             throw CallRecordingToneError.airliftUnavailable
         }
@@ -105,8 +102,6 @@ actor AirliftToneTransport {
     }
 
     private static func writeSync(files: [AirliftToneFile], pairingPath: String) throws {
-        configureTargets()
-
         let stagingDirectory = FileManager.default.temporaryDirectory
             .appending(path: "AirBeep-Airlift-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
@@ -143,12 +138,6 @@ actor AirliftToneTransport {
         guard result == 0 else {
             throw CallRecordingToneError.airliftFailed(message ?? "AirLift write failed (\(result)).")
         }
-    }
-
-    private static func configureTargets() {
-        guard let symbol = dlsym(rtlDefaultHandle(), "al_set_target_host") else { return }
-        let setTarget = unsafeBitCast(symbol, to: SetTargetFn.self)
-        _ = "10.7.0.1".withCString { setTarget($0) }
     }
 
     private static func freeBytes(_ pointer: UnsafeMutablePointer<UInt8>, length: Int) {
