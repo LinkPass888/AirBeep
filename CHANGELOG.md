@@ -19,9 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   tone state is no longer displayed — detecting it needs a device read that
   is unreliable on some iOS releases. Successful operations confirm with an
   alert instead.
-- The version number is shown on the home page.
+- The home page version line shows the running system version beside the app
+  version, e.g. `iOS 27.1  AirBeep v2.5.1 (9)` (`iPadOS` on iPad).
 - Backup is a standalone action: back the originals up before silencing so
-  they are always recoverable; the button then flips to Restore.
+  they are always recoverable; the button then flips to Restore. The
+  automatic-backup note sits under that button.
 
 ### English / Fixed
 - **Flaky airlift reads no longer abort the whole operation.** Each tone file
@@ -37,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (skipped automatically on releases that do not ship it).
 - Restore without a backup explains the language-change recovery path instead
   of failing with a generic "no backup" error.
+- Removed the non-public-behavior disclaimer from the bottom of the home page.
 
 ### English / Added
 - **Advanced settings** (About page): set a custom device IP for the loopback
@@ -58,8 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **备份原始提示音**（尚无完整备份时显示）或 **恢复原始提示音**。不再显示
   当前提示音状态——检测状态需要在部分 iOS 版本上不可靠的设备读取；操作
   成功后以弹窗提示。
-- 首页显示版本号。
-- 备份成为独立操作：可先备份再静音，原音始终可找回；按钮随后切换为恢复。
+- 首页版本行在软件版本号左侧显示当前系统版本，例如
+  `iOS 27.1  AirBeep v2.5.1 (9)`（iPad 上显示 `iPadOS`）。
+- 备份成为独立操作：可先备份再静音，原音始终可找回；按钮随后切换为恢复，
+  自动备份说明位于该按钮下方。
 
 ### 中文 / 修复
 - **airlift 读取偶发失败不再导致整个操作中断。** 每个提示音文件独立读取，
@@ -72,6 +77,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   系统版本自动跳过）。
 - 无备份时的恢复会明确指引"更改系统语言"恢复路径，不再报模糊的
   "无备份"错误。
+- 删除首页底部"依赖非公开系统行为"的免责提示。
 
 ### 中文 / 新增
 - **高级设置**（关于页）：可为回环连接设置自定义设备 IP，并查看带
