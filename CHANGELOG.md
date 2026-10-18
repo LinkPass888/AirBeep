@@ -9,8 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### English / Changed
 - **iOS 18 is now supported.** The deployment target drops from iOS 27 to
   iOS 18.0; the supported range is **iOS/iPadOS 18.0 – 27.2 B2**, and later
-  versions cannot be supported. Below iOS 27, on-device pairing is not
-  offered — generate a pairing file on a computer with
+  versions cannot be supported. Below iOS 27 the system does not support
+  on-device pairing — generate a pairing file on a computer with
   [iloader](https://github.com/nab138/iloader) or
   [idevice_pair](https://github.com/jkcoxson/idevice_pair) and import it.
 - **The switch is gone.** The home screen now shows two independent actions:
@@ -54,8 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### 中文 / 变更
 - **支持 iOS 18。** 最低系统要求由 iOS 27 降至 iOS 18.0，支持范围为
-  **iOS/iPadOS 18.0 – 27.2 B2**，之后的版本无法支持。iOS 27 以下不再提供
-  本机配对，请在电脑上用 [iloader](https://github.com/nab138/iloader) 或
+  **iOS/iPadOS 18.0 – 27.2 B2**，之后的版本无法支持。iOS 27 以下的系统
+  不支持本机配对，请在电脑上用 [iloader](https://github.com/nab138/iloader) 或
   [idevice_pair](https://github.com/jkcoxson/idevice_pair) 生成配对文件后导入。
 - **取消开关设计。** 首页改为两个独立操作：**静音录音提示音**，以及
   **备份原始提示音**（尚无完整备份时显示）或 **恢复原始提示音**。不再显示
