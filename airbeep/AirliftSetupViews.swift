@@ -132,15 +132,27 @@ struct AirliftPairingView: View {
                 .disabled(running)
             }
 
-            Button(action: onImportPairingFile) {
-                Label("Import pairing file", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
+            // Conditional modifiers cannot use a ternary between two different
+            // ButtonStyle types (Swift infers against ButtonStyle itself, which
+            // has no .bordered). Apply each branch separately instead.
+            if onDevicePairingSupported {
+                importPairingButton
+                    .buttonStyle(.bordered)
+            } else {
+                importPairingButton
+                    .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(onDevicePairingSupported ? .bordered : .borderedProminent)
-            .controlSize(.large)
-            .disabled(running)
         }
         .padding(24)
+    }
+
+    private var importPairingButton: some View {
+        Button(action: onImportPairingFile) {
+            Label("Import pairing file", systemImage: "square.and.arrow.down")
+                .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
+        .disabled(running)
     }
 }
 

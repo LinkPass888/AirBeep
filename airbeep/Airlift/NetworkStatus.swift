@@ -118,7 +118,7 @@ enum NetworkStatus {
         // the duration of the call and free() releases them right after.
         let cStrings = candidates.map { strdup($0) }
         defer { cStrings.forEach { free($0) } }
-        var pointers = cStrings.map { UnsafePointer($0) }
+        let pointers = cStrings.map { UnsafePointer($0) }
         pointers.withUnsafeBufferPointer { buffer in
             if let base = buffer.baseAddress {
                 _ = al_set_target_hosts(base, buffer.count)
