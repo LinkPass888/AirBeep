@@ -50,7 +50,8 @@ struct AirBeepAirliftSetupView: View {
                             onStart: startPairing,
                             onImportPairingFile: {
                                 isImportingPairingFile = true
-                            }
+                            },
+                            onDevicePairingSupported: SystemCompatibility.supportsOnDevicePairing
                         )
                     }
                 }

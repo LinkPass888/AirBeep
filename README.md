@@ -2,15 +2,16 @@
 
 > 🌍 **Languages:** English | [简体中文 (Simplified Chinese)](./README_zh-CN.md)
 
-AirBeep is an iOS utility that silences the built-in call-recording disclosure tones. Flip one switch to replace the start and stop sounds with equal-length silence; flip it again to restore the original files from the automatic backup.
+AirBeep is an iOS utility that silences the built-in call-recording disclosure tones. Back up the original tones first, then silence the start and stop sounds with equal-length silence, and restore the originals from the backup whenever you want.
 
 
 ## Features
 
-- One switch to silence the call-recording start and stop tones.
-- Automatic backup of the original tone files before the first change — the backup is kept and never overwritten.
+- Separate actions: back up the original tones, silence them, and restore them — no ambiguous switch state.
+- The originals can be backed up before any change; the backup is kept and never overwritten.
 - File read-back verification after every write.
 - One-tap restoration from the local backup.
+- Advanced settings with a custom device IP and a live network-interface table for the loopback connection.
 - English and Simplified Chinese UI.
 
 ## How it works
@@ -18,6 +19,7 @@ AirBeep is an iOS utility that silences the built-in call-recording disclosure t
 AirBeep requests scoped container access for these system files:
 
 - `/var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a`
+- `/var/mobile/Library/CallServices/Greetings/default/StartDisclosure.caf` (not shipped on every iOS release — skipped when absent)
 - `/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf`
 
 The replacement files are based on the silent assets from AirliftSilence and keep the original durations. Backups are stored in the app's Documents directory under `AirBeepBackups`.
@@ -25,7 +27,7 @@ The replacement files are based on the silent assets from AirliftSilence and kee
 ## Requirements
 
 - A physical iPhone or iPad running one of the supported iOS/iPadOS releases:
-  - **iOS/iPadOS 27.0 – 27.2 B2**
+  - **iOS/iPadOS 18.0 – 27.2 B2** — later versions are not supported.
 - Xcode 27 or newer for local builds.
 - The provided GitHub Actions workflow builds an unsigned IPA in the cloud.
 

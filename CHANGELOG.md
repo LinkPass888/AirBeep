@@ -4,6 +4,87 @@ All notable changes to **AirBeep** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.5.0] - 2026-10-18
+
+### English / Changed
+- **iOS 18 is now supported.** The deployment target drops from iOS 27 to
+  iOS 18.0; the supported range is **iOS/iPadOS 18.0 – 27.2 B2**, and later
+  versions cannot be supported. Below iOS 27, on-device pairing is not
+  offered — generate a pairing file on a computer with
+  [iloader](https://github.com/nab138/iloader) or
+  [idevice_pair](https://github.com/jkcoxson/idevice_pair) and import it.
+- **The switch is gone.** The home screen now shows two independent actions:
+  **Silence recording tone**, and either **Back Up Original Tones** (shown
+  until a complete backup exists) or **Restore original tone**. The current
+  tone state is no longer displayed — detecting it needs a device read that
+  is unreliable on some iOS releases. Successful operations confirm with an
+  alert instead.
+- The version number is shown on the home page.
+- Backup is a standalone action: back the originals up before silencing so
+  they are always recoverable; the button then flips to Restore.
+
+### English / Fixed
+- **Flaky airlift reads no longer abort the whole operation.** Each tone file
+  is read independently; a failed read is skipped and logged instead of
+  failing the silence/restore. The write channel's return code is the source
+  of truth, and read-back verification degrades to a log entry when a re-read
+  is unavailable.
+- **Loopback connect no longer falsely demands Wi-Fi.** Wi-Fi presence is now
+  read from the live interface table (`getifaddrs`) instead of
+  `NWPathMonitor`, which reports unsatisfied once the VPN owns the default
+  path. Wi-Fi is still required.
+- The third writable tone file `StartDisclosure.caf` is now replaced too
+  (skipped automatically on releases that do not ship it).
+- Restore without a backup explains the language-change recovery path instead
+  of failing with a generic "no backup" error.
+
+### English / Added
+- **Advanced settings** (About page): set a custom device IP for the loopback
+  connection, and inspect the live network-interface table with tunnel/Wi-Fi
+  state — self-diagnosis for the "connection refused / wrong subnet" reports.
+- Runtime interface scan: tunnel dials now adapt to the actual network via
+  `al_set_target_hosts` without any route probing.
+- Localization hardened: two validation scripts keep the EN/zh-Hans catalogs
+  in sync (identical keys, matching placeholders, no untranslated UI literals).
+
+---
+
+### 中文 / 变更
+- **支持 iOS 18。** 最低系统要求由 iOS 27 降至 iOS 18.0，支持范围为
+  **iOS/iPadOS 18.0 – 27.2 B2**，之后的版本无法支持。iOS 27 以下不再提供
+  本机配对，请在电脑上用 [iloader](https://github.com/nab138/iloader) 或
+  [idevice_pair](https://github.com/jkcoxson/idevice_pair) 生成配对文件后导入。
+- **取消开关设计。** 首页改为两个独立操作：**静音录音提示音**，以及
+  **备份原始提示音**（尚无完整备份时显示）或 **恢复原始提示音**。不再显示
+  当前提示音状态——检测状态需要在部分 iOS 版本上不可靠的设备读取；操作
+  成功后以弹窗提示。
+- 首页显示版本号。
+- 备份成为独立操作：可先备份再静音，原音始终可找回；按钮随后切换为恢复。
+
+### 中文 / 修复
+- **airlift 读取偶发失败不再导致整个操作中断。** 每个提示音文件独立读取，
+  失败仅跳过并记录日志；以写入通道的返回码为准，回读校验在无法读取时
+  降级为日志记录。
+- **回环连接不再误报"需要连接 Wi-Fi"。** Wi-Fi 状态改由实时接口表
+  （`getifaddrs`）判断，不再使用在 VPN 接管默认路由后总报告不可用的
+  `NWPathMonitor`。Wi-Fi 仍为必需条件。
+- 同时替换第三个可写提示音文件 `StartDisclosure.caf`（未提供该文件的
+  系统版本自动跳过）。
+- 无备份时的恢复会明确指引"更改系统语言"恢复路径，不再报模糊的
+  "无备份"错误。
+
+### 中文 / 新增
+- **高级设置**（关于页）：可为回环连接设置自定义设备 IP，并查看带
+  隧道/Wi-Fi 状态的实时网络接口列表，自行排查"连接被拒绝 / 网段不对"问题。
+- 运行时接口扫描：通过 `al_set_target_hosts` 让隧道拨号适配实际网络，
+  不做任何路由探测。
+- 本地化加固：新增两个校验脚本保证中英文目录一致（键相同、占位符匹配、
+  无未翻译界面文案）。
+
+---
+
+**Full Changelog**: [v2.4.1...v2.5.0](https://github.com/LinkPass888/AirBeep/compare/v2.4.1...v2.5.0)
+
 ## [2.4.1] - 2026-10-17
 
 ### English / Fixed

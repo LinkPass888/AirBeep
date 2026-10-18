@@ -2,15 +2,16 @@
 
 > 🌍 **Languages:** [English](./README.md) | 简体中文
 
-AirBeep 是一款 iOS 工具，用于静音系统内置的通话录音提示音。只需拨动一个开关，即可将开始与结束提示音替换为等长静音；再次拨动开关，即可从自动备份中恢复原始文件。
+AirBeep 是一款 iOS 工具，用于静音系统内置的通话录音提示音。先备份原始提示音，再将开始与结束提示音替换为等长静音，随时可从备份中恢复原音。
 
 
 ## 功能特性
 
-- 一个开关即可静音通话录音的开始与结束提示音。
-- 首次修改前自动备份原始提示音文件 —— 备份会被保留且绝不会被覆盖。
+- 独立操作：备份原始提示音、静音、恢复原音，不再有含义模糊的开关状态。
+- 修改前即可备份原音；备份会被保留且绝不会被覆盖。
 - 每次写入后都会进行文件回读校验。
 - 一键从本地备份恢复。
+- 高级设置提供自定义设备 IP 与实时网络接口列表，便于排查回环连接。
 - 支持英文与简体中文界面。
 
 ## 工作原理
@@ -18,6 +19,7 @@ AirBeep 是一款 iOS 工具，用于静音系统内置的通话录音提示音�
 AirBeep 会请求以下系统文件的容器级访问权限：
 
 - `/var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a`
+- `/var/mobile/Library/CallServices/Greetings/default/StartDisclosure.caf`（并非所有 iOS 版本都存在，缺失时自动跳过）
 - `/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf`
 
 替换文件基于 AirliftSilence 的静音资源，并保持原始时长。备份保存在应用 Documents 目录下的 `AirBeepBackups` 中。
@@ -25,7 +27,7 @@ AirBeep 会请求以下系统文件的容器级访问权限：
 ## 系统要求
 
 - 一台受支持的 iOS/iPadOS 系统的实体 iPhone 或 iPad：
-  - **iOS/iPadOS 27.0 – 27.2 B2**
+  - **iOS/iPadOS 18.0 – 27.2 B2** —— 之后的版本无法支持。
 - 本地构建需 Xcode 27 或更高版本。
 - 仓库提供的 GitHub Actions 工作流可在云端构建 unsigned IPA。
 

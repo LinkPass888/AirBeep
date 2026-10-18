@@ -12,6 +12,9 @@ enum CallRecordingToneError: LocalizedError {
     case missingBackup
     case invalidToneBundle
     case verificationFailed(String)
+    case languageRestoreRequired
+    case nothingToBackup
+    case backupIncomplete
 
     var errorDescription: String? {
         switch self {
@@ -33,49 +36,48 @@ enum CallRecordingToneError: LocalizedError {
             String(localized: "The bundled silent tones are missing.")
         case .verificationFailed(let name):
             String(format: String(localized: "Could not verify %@ after writing."), name)
+        case .languageRestoreRequired:
+            String(localized: "The original tones were not backed up before they were replaced. Change the system language once (Settings › General › Language & Region) to force iOS to regenerate the original tones, then reopen AirBeep.")
+        case .nothingToBackup:
+            String(localized: "The tones on this device are already silent, so there are no originals left to back up. Change the system language once (Settings › General › Language & Region) to force iOS to regenerate them, then try again.")
+        case .backupIncomplete:
+            String(localized: "Only some of the original tones could be read, so the backup is incomplete. The rest can still be recovered by changing the system language once.")
         }
     }
 }
 
-/// Persists the last known tone mode so the UI can restore state without
-/// probing the system files on launch. Verifying the current disclosure tone
-/// requires an airlift read, which is unreliable on some iOS releases, so we
-/// never read at app-open; the stored mode is trusted until the user flips the
-/// switch (a real write) or performs an explicit re-check.
-private enum ToneModeCache {
-    private static let key = "CallRecordingToneMode"
+/// Records whether the current silent tones were applied without a complete
+/// original backup. The system regenerates the original disclosure tones when
+/// the system language changes, so that remains the documented recovery path;
+/// this flag only makes the restore flow explain it instead of pretending a
+/// backup exists.
+private enum ToneBackupStateCache {
+    private static let key = "CallRecordingToneSilencedWithoutBackup"
 
-    static func load() -> CallRecordingToneService.ToneMode? {
-        // object(forKey:) returns nil when the key was never set, so a fresh
-        // install (or a now-fixed older build that stored nothing) does not map
-        // onto .checking (raw 0). integer(forKey:) would return 0 here and
-        // wrongly put the UI into the disabled "Checking..." state.
-        guard let raw = UserDefaults.standard.object(forKey: key) as? Int else {
-            return nil
-        }
-        return CallRecordingToneService.ToneMode(rawValue: raw)
+    static func load() -> Bool {
+        UserDefaults.standard.bool(forKey: key)
     }
 
-    static func save(_ mode: CallRecordingToneService.ToneMode) {
-        UserDefaults.standard.set(mode.rawValue, forKey: key)
+    static func save(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: key)
     }
 }
 
 @MainActor
 final class CallRecordingToneService: ObservableObject {
-    enum ToneMode: Int, Equatable {
-        case checking = 0
-        case systemTone = 1
-        case silentTone = 2
-        case unavailable = 3
-    }
-
     static let shared = CallRecordingToneService()
 
-    @Published private(set) var mode: ToneMode = .checking
+    /// Whether a complete original-tone backup exists on disk. The home screen
+    /// reads this to offer "Back Up Original Tones" when false and "Restore
+    /// Original Tones" when true. Refreshing it only reads the Documents folder
+    /// — no airlift call — so it is cheap enough to do on every appearance.
+    @Published private(set) var backupReady = false
     @Published private(set) var isBusy = false
     @Published private(set) var lastError: String?
-    @Published private(set) var statusDetail: String?
+    /// Set when an operation finished successfully; the view shows it as an
+    /// alert. The current tone state is deliberately not displayed: detecting it
+    /// needs a device read, which is unreliable on some iOS releases.
+    @Published private(set) var successMessage: String?
     @Published private(set) var needsAirliftSetup = false
     @Published private(set) var busyMessage: String?
 
@@ -89,6 +91,9 @@ final class CallRecordingToneService: ObservableObject {
         let backupName: String
         let resourceName: String
         let resourceExtension: String
+        /// Not shipped on every iOS release; a missing or unreadable optional
+        /// tone never blocks an operation.
+        let optional: Bool
     }
 
     private let files = [
@@ -97,14 +102,24 @@ final class CallRecordingToneService: ObservableObject {
             systemPath: "/var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a",
             backupName: "StartDisclosureWithTone.m4a",
             resourceName: "AirBeepStartSilence",
-            resourceExtension: "m4a"
+            resourceExtension: "m4a",
+            optional: false
+        ),
+        ToneFile(
+            name: "StartDisclosure.caf",
+            systemPath: "/var/mobile/Library/CallServices/Greetings/default/StartDisclosure.caf",
+            backupName: "StartDisclosure.caf",
+            resourceName: "AirBeepStartSilence",
+            resourceExtension: "caf",
+            optional: true
         ),
         ToneFile(
             name: "StopDisclosure.caf",
             systemPath: "/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf",
             backupName: "StopDisclosure.caf",
             resourceName: "AirBeepStopSilence",
-            resourceExtension: "caf"
+            resourceExtension: "caf",
+            optional: false
         )
     ]
 
@@ -115,23 +130,74 @@ final class CallRecordingToneService: ObservableObject {
 
     private init() {}
 
-    func refresh() async {
+    /// Refreshes what can be known without touching the device.
+    ///
+    /// The current tone is deliberately *not* detected here: that needs an
+    /// airlift read, which is unreliable on some iOS releases and would surface
+    /// a spurious error on every launch. Only the backup state is refreshed,
+    /// which is a plain Documents folder check.
+    func refresh() {
         guard !isBusy else { return }
-        isBusy = true
-        defer { isBusy = false }
-
-        // Never probe the system disclosure files at app-open: airlift reads are
-        // unreliable on some iOS releases and would surface a spurious error.
-        // Restore the last known mode from the cache instead.
-        mode = ToneModeCache.load() ?? .systemTone
-        statusDetail = nil
+        refreshBackupState()
         needsAirliftSetup = false
         lastError = nil
-        AirBeepLog.shared.append("refresh: restored cached mode = \(mode)")
+        successMessage = nil
+        AirBeepLog.shared.append("refresh: backupReady = \(backupReady)")
     }
 
     func clearError() {
         lastError = nil
+    }
+
+    func clearSuccess() {
+        successMessage = nil
+    }
+
+    /// Reads the current disclosure tones and saves them as the restore source.
+    ///
+    /// Kept separate from silencing so the backup can be created while the
+    /// originals are still intact, and so an incomplete backup is reported here
+    /// instead of silently degrading the later restore.
+    func backupOriginalTones() async {
+        guard !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+        AirBeepLog.shared.append("backupOriginalTones: start")
+
+        await withBusyScreen(String(localized: "Backing up original call recording tones")) { [self] in
+            do {
+                NetworkStatus.syncTargetHostsToAirlift()
+
+                let backend = try accessBackend()
+                let current = await readTonesTolerant(using: backend)
+                let silent = try silentTones()
+                // Only conclude "already silent" when at least one tone was
+                // actually read: an all-nil table is a read failure, not a
+                // silent device, and falls through to the backup check.
+                let anyReadable = current.contains { $0 != nil }
+                if anyReadable, Self.tones(current, equal: silent, requireAll: false) {
+                    // Every readable tone is already the bundled silence, so
+                    // there are no originals left to save.
+                    throw CallRecordingToneError.nothingToBackup
+                }
+
+                try self.ensureBackup(current)
+                self.refreshBackupState()
+                guard self.backupReady else {
+                    // A required tone could not be read. What was read is
+                    // already saved; the language-change path still recovers
+                    // the rest (see .languageRestoreRequired).
+                    throw CallRecordingToneError.backupIncomplete
+                }
+
+                self.finishSuccess(
+                    String(localized: "The original recording tones were backed up. You can silence them now.")
+                )
+                AirBeepLog.shared.append("backupOriginalTones: success")
+            } catch {
+                self.reportOperationError(error)
+            }
+        }
     }
 
     func applySilentTone() async {
@@ -142,28 +208,49 @@ final class CallRecordingToneService: ObservableObject {
 
         await withBusyScreen(String(localized: "Applying silence to call recording tones")) { [self] in
             do {
+                // The interface set may have changed since launch (VPN enabled,
+                // Wi-Fi subnet changed) — refresh the tunnel candidates first.
+                NetworkStatus.syncTargetHostsToAirlift()
+
                 let backend = try accessBackend()
-                let current = try await readTones(using: backend)
+                let current = await readTonesTolerant(using: backend)
                 let silent = try silentTones()
-                if current == silent {
-                    self.mode = .silentTone
-                    self.statusDetail = nil
-                    self.needsAirliftSetup = false
-                    self.lastError = nil
-                    ToneModeCache.save(.silentTone)
+                if Self.tones(current, equal: silent, requireAll: true) {
+                    // Already silent. Reported as success without a write, and
+                    // without touching ToneBackupStateCache: nothing was
+                    // replaced in this run.
+                    self.refreshBackupState()
+                    self.finishSuccess(
+                        String(localized: "The recording tones are already silent.")
+                    )
                     AirBeepLog.shared.append("applySilentTone: already silent")
                     return
                 }
 
                 try self.ensureBackup(current)
-                AirBeepLog.shared.append("applySilentTone: backup ensured, writing silence")
+                self.refreshBackupState()
+                let haveBackup = self.backupReady
+                AirBeepLog.shared.append(
+                    "applySilentTone: backup complete=\(haveBackup), writing silence"
+                )
+                if !haveBackup {
+                    // Reading a required tone failed and it was never backed up.
+                    // Proceed anyway: iOS regenerates the original disclosure
+                    // tones when the system language changes, which stays the
+                    // documented recovery path (see restoreSystemTone).
+                    AirBeepLog.shared.append(
+                        "applySilentTone: no complete backup; language change remains the recovery path"
+                    )
+                }
+
                 do {
                     try await self.writeTones(silent, using: backend)
-                    self.mode = .silentTone
-                    self.statusDetail = nil
-                    self.needsAirliftSetup = false
-                    self.lastError = nil
-                    ToneModeCache.save(.silentTone)
+                    ToneBackupStateCache.save(!haveBackup)
+                    self.finishSuccess(
+                        haveBackup
+                            ? String(localized: "The recording tones were silenced.")
+                            : String(localized: "The recording tones were silenced, but the originals could not be fully backed up. Change the system language once to get them back.")
+                    )
                     AirBeepLog.shared.append("applySilentTone: success")
                 } catch {
                     try? await self.writeTones(current, using: backend)
@@ -183,46 +270,77 @@ final class CallRecordingToneService: ObservableObject {
 
         await withBusyScreen(String(localized: "Restoring original call recording tones")) { [self] in
             do {
+                NetworkStatus.syncTargetHostsToAirlift()
+
                 let backend = try accessBackend()
-                let current = try await readTones(using: backend)
-                // No backup yet means the tones have never been changed, so they are
-                // already the original system tones.
-                guard let backup = try? readBackups() else {
-                    mode = .systemTone
-                    statusDetail = nil
-                    needsAirliftSetup = false
-                    lastError = nil
-                    ToneModeCache.save(.systemTone)
-                    AirBeepLog.shared.append("restoreSystemTone: no backup, already original")
-                    return
+                let current = await readTonesTolerant(using: backend)
+                let silent = try silentTones()
+                let backups = try? self.readBackupsTolerant()
+
+                guard let backups, self.isCompleteRequiredBackup(backups) else {
+                    // No usable backup. If we never silenced without one, the
+                    // tones were never changed and are already original.
+                    guard ToneBackupStateCache.load() else {
+                        self.refreshBackupState()
+                        self.finishSuccess(
+                            String(localized: "The original recording tones are already in place.")
+                        )
+                        AirBeepLog.shared.append("restoreSystemTone: no backup, already original")
+                        return
+                    }
+                    // We silenced without a backup. Any tone that could be read
+                    // and is not the bundled silence means iOS already
+                    // regenerated the original disclosure audio.
+                    let anyReadable = current.contains { $0 != nil }
+                    if anyReadable, !Self.tones(current, equal: silent, requireAll: false) {
+                        ToneBackupStateCache.save(false)
+                        self.refreshBackupState()
+                        self.finishSuccess(
+                            String(localized: "The original recording tones were restored.")
+                        )
+                        AirBeepLog.shared.append("restoreSystemTone: originals already regenerated")
+                        return
+                    }
+                    throw CallRecordingToneError.languageRestoreRequired
                 }
-                if current == backup {
-                    mode = .systemTone
-                    statusDetail = nil
-                    needsAirliftSetup = false
-                    lastError = nil
-                    ToneModeCache.save(.systemTone)
+
+                if Self.tones(current, equal: backups, requireAll: true) {
+                    ToneBackupStateCache.save(false)
+                    self.refreshBackupState()
+                    self.finishSuccess(
+                        String(localized: "The original recording tones are already in place.")
+                    )
                     AirBeepLog.shared.append("restoreSystemTone: already original")
                     return
                 }
 
                 do {
                     AirBeepLog.shared.append("restoreSystemTone: writing original from backup")
-                    try await writeTones(backup, using: backend)
-                    mode = .systemTone
-                    statusDetail = nil
-                    needsAirliftSetup = false
-                    lastError = nil
-                    ToneModeCache.save(.systemTone)
+                    try await writeTones(backups, using: backend)
+                    ToneBackupStateCache.save(false)
+                    self.refreshBackupState()
+                    self.finishSuccess(
+                        String(localized: "The original recording tones were restored.")
+                    )
                     AirBeepLog.shared.append("restoreSystemTone: success")
                 } catch {
-                    try? await writeTones(current, using: backend)
+                    try? await self.writeTones(current, using: backend)
                     throw error
                 }
             } catch {
                 reportOperationError(error)
             }
         }
+    }
+
+    private func refreshBackupState() {
+        backupReady = hasCompleteRequiredBackup()
+    }
+
+    private func finishSuccess(_ message: String) {
+        needsAirliftSetup = false
+        lastError = nil
+        successMessage = message
     }
 
     /// Keeps the screen awake and shows a warning banner while an operation
@@ -239,10 +357,11 @@ final class CallRecordingToneService: ObservableObject {
 
 
     private func reportOperationError(_ error: Error) {
-        mode = .unavailable
-        statusDetail = error.localizedDescription
+        // An incomplete backup is a partial success: what could be read is
+        // saved. Keep backupReady as-is so the button state stays accurate.
         needsAirliftSetup = shouldOfferAirliftSetup(for: error)
         lastError = error.localizedDescription
+        successMessage = nil
         AirBeepLog.shared.append("operation error: \(error.localizedDescription)")
     }
 
@@ -267,13 +386,22 @@ final class CallRecordingToneService: ObservableObject {
             return true
         case .toneReadFailed:
             return true
-        case .unsupported, .missingTone, .missingBackup, .invalidToneBundle, .verificationFailed:
+        case .unsupported, .missingTone, .missingBackup, .invalidToneBundle,
+             .verificationFailed, .languageRestoreRequired,
+             .nothingToBackup, .backupIncomplete:
             return false
         }
     }
 
-    private func readTones(using backend: AccessBackend) async throws -> [Data] {
-        var tones: [Data] = []
+    // MARK: - Reading
+
+    /// Reads every disclosure tone, one file at a time. The airlift read
+    /// channel moves each file through AirTraffic and can fail to recover it
+    /// on some iOS releases even though the write channel works, so a failed
+    /// read never aborts the operation — the entry is `nil` and the caller
+    /// decides how to proceed (backup fallback or language-change recovery).
+    private func readTonesTolerant(using backend: AccessBackend) async -> [Data?] {
+        var tones: [Data?] = []
         tones.reserveCapacity(files.count)
 
         for file in files {
@@ -288,26 +416,42 @@ final class CallRecordingToneService: ObservableObject {
                     )
                 }
             } catch {
-                throw mapReadError(error, file: file)
+                if file.optional {
+                    AirBeepLog.shared.append(
+                        "readTones: optional tone \(file.name) unavailable (\(error.localizedDescription))"
+                    )
+                } else {
+                    AirBeepLog.shared.append(
+                        "readTones: \(file.name) could not be read (\(error.localizedDescription)); continuing"
+                    )
+                }
+                tones.append(nil)
             }
         }
 
         return tones
     }
 
-    private func mapReadError(_ error: Error, file: ToneFile) -> Error {
-        if let error = error as? CallRecordingToneError {
-            return error
+    /// Element-wise comparison of tone arrays. `nil` entries (unread tone or
+    /// missing backup) count as "not equal" so the operation errs on the side
+    /// of writing. With `requireAll` the comparison only matches when every
+    /// entry is present and equal.
+    private static func tones(_ lhs: [Data?], equal rhs: [Data?], requireAll: Bool) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        for (l, r) in zip(lhs, rhs) {
+            switch (l, r) {
+            case (nil, _), (_, nil):
+                if requireAll { return false }
+            case let (l?, r?):
+                guard l == r else { return false }
+            }
         }
-
-        let nsError = error as NSError
-        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoSuchFileError {
-            return CallRecordingToneError.missingTone(file.name)
-        }
-        return CallRecordingToneError.toneReadFailed(file.name, error.localizedDescription)
+        return true
     }
 
-    private func silentTones() throws -> [Data] {
+    // MARK: - Silent assets & backups
+
+    private func silentTones() throws -> [Data?] {
         try files.map { file in
             guard let url = resourceURL(for: file) else {
                 throw CallRecordingToneError.invalidToneBundle
@@ -331,49 +475,85 @@ final class CallRecordingToneService: ObservableObject {
             )
     }
 
-    private func ensureBackup(_ current: [Data]) throws {
-        if (try? readBackups()) != nil {
-            return
-        }
-        guard current != (try silentTones()) else {
-            throw CallRecordingToneError.missingBackup
-        }
-
+    /// Saves a backup for every tone that was read successfully and does not
+    /// already have one. Existing backups are never overwritten, and entries
+    /// that are already the bundled silence are not stored as "originals".
+    private func ensureBackup(_ current: [Data?]) throws {
+        let silent = try silentTones()
         try FileManager.default.createDirectory(
             at: backupDirectory,
             withIntermediateDirectories: true
         )
-        for (file, data) in zip(files, current) {
-            try data.write(to: backupURL(for: file), options: .atomic)
+        for (index, file) in files.enumerated() {
+            guard let data = current.indices.contains(index) ? current[index] : nil else { continue }
+            let url = backupURL(for: file)
+            guard !FileManager.default.fileExists(atPath: url.path) else { continue }
+            if let silentData = silent[index], data == silentData {
+                AirBeepLog.shared.append("ensureBackup: \(file.name) is already silence, not backed up")
+                continue
+            }
+            try data.write(to: url, options: .atomic)
+            AirBeepLog.shared.append("ensureBackup: saved \(file.name)")
         }
     }
 
-    private func readBackups() throws -> [Data] {
+    /// Loads the backup for every tone; `nil` where no backup exists.
+    private func readBackupsTolerant() throws -> [Data?] {
         try files.map { file in
             let url = backupURL(for: file)
             guard FileManager.default.fileExists(atPath: url.path) else {
-                throw CallRecordingToneError.missingBackup
+                return nil
             }
             return try Data(contentsOf: url)
         }
+    }
+
+    /// A backup is usable when every required tone has a non-empty copy.
+    private func isCompleteRequiredBackup(_ backups: [Data?]) -> Bool {
+        guard backups.count == files.count else { return false }
+        return zip(files, backups).allSatisfy { file, data in
+            file.optional || (data?.isEmpty == false)
+        }
+    }
+
+    private func hasCompleteRequiredBackup() -> Bool {
+        guard let backups = try? readBackupsTolerant() else { return false }
+        return isCompleteRequiredBackup(backups)
     }
 
     private func backupURL(for file: ToneFile) -> URL {
         backupDirectory.appending(path: file.backupName)
     }
 
-    private func writeTones(_ tones: [Data], using backend: AccessBackend) async throws {
+    // MARK: - Writing
+
+    /// Writes the given tones (aligned with `files`; `nil` entries are
+    /// skipped) through the airlift write channel. The write channel is
+    /// independent of the flaky read channel, so it stays the source of
+    /// truth: its return code decides success. The read-back verification
+    /// runs best-effort — it still fails the operation when a read succeeds
+    /// but returns different bytes, while an unavailable read only logs.
+    private func writeTones(_ tones: [Data?], using backend: AccessBackend) async throws {
         switch backend {
         case .airlift(let pairingPath):
-            let payload = zip(files, tones).map {
-                AirliftToneFile(name: $0.name, data: $1)
+            let payload = zip(files, tones).compactMap { file, data -> AirliftToneFile? in
+                guard let data else { return nil }
+                return AirliftToneFile(name: file.name, data: data)
             }
+            guard !payload.isEmpty else { return }
             try await AirliftToneTransport.shared.write(files: payload, pairingPath: pairingPath)
         }
 
-        let verified = try await readTones(using: backend)
+        let verified = await readTonesTolerant(using: backend)
         for (index, file) in files.enumerated() {
-            guard verified.indices.contains(index), verified[index] == tones[index] else {
+            guard let expected = tones.indices.contains(index) ? tones[index] : nil else { continue }
+            guard verified.indices.contains(index), let actual = verified[index] else {
+                AirBeepLog.shared.append(
+                    "writeTones: could not re-read \(file.name) to verify; write channel reported success"
+                )
+                continue
+            }
+            guard actual == expected else {
                 throw CallRecordingToneError.verificationFailed(file.name)
             }
         }

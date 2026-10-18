@@ -10,14 +10,13 @@ struct AirBeepRootView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     header
-                    statusCard
                     if let busyMessage = service.busyMessage {
                         busyWarning(message: busyMessage)
                     }
                     if service.needsAirliftSetup {
                         airliftSetupCard
                     }
-                    toneToggle
+                    toneActions
                     details
                 }
                 .padding(20)
@@ -35,14 +34,14 @@ struct AirBeepRootView: View {
                 }
             }
         }
-        .task {
-            await service.refresh()
+        .onAppear {
+            service.refresh()
         }
         .sheet(isPresented: $showingAbout) {
             AirBeepAboutView()
         }
         .sheet(isPresented: $showingAirliftSetup, onDismiss: {
-            Task { await service.refresh() }
+            service.refresh()
         }) {
             AirBeepAirliftSetupView()
         }
@@ -63,6 +62,23 @@ struct AirBeepRootView: View {
         } message: {
             Text(service.lastError ?? "")
         }
+        .alert(
+            "Done",
+            isPresented: Binding(
+                get: { service.successMessage != nil },
+                set: { presented in
+                    if !presented {
+                        service.clearSuccess()
+                    }
+                }
+            )
+        ) {
+            Button("OK") {
+                service.clearSuccess()
+            }
+        } message: {
+            Text(service.successMessage ?? "")
+        }
     }
 
     private var header: some View {
@@ -78,59 +94,76 @@ struct AirBeepRootView: View {
 
             Text("Call Recording Tone")
                 .font(.title2.bold())
-            Text("Choose the disclosure sound played when call recording starts and stops.")
+            Text("Back up the original disclosure tones, then silence them. Restore the originals at any time.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            Text("v\(appVersion)")
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private var statusCard: some View {
-        HStack(spacing: 16) {
-            Image(systemName: modeSymbol)
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(modeColor)
-                .frame(width: 48, height: 48)
-                .background(modeColor.opacity(0.12), in: .circle)
+    /// Marketing version plus build number, e.g. `2.5.0 (8)`.
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        guard !version.isEmpty else { return build }
+        guard !build.isEmpty else { return version }
+        return "\(version) (\(build))"
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(modeTitle)
+    /// Two independent actions instead of one switch: silence the tones, and
+    /// either back up the originals (when no backup exists yet) or restore
+    /// them. The current tone state is intentionally not shown — detecting it
+    /// needs a device read that is unreliable on some iOS releases.
+    private var toneActions: some View {
+        VStack(spacing: 14) {
+            Button {
+                Task { await service.applySilentTone() }
+            } label: {
+                Label("Silence recording tone", systemImage: "speaker.slash.fill")
                     .font(.headline)
-                Text(modeDetail)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(.orange)
+            .disabled(service.isBusy)
 
-            Spacer(minLength: 0)
+            if service.backupReady {
+                Button {
+                    Task { await service.restoreSystemTone() }
+                } label: {
+                    Label("Restore original tone", systemImage: "arrow.uturn.backward.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(service.isBusy)
+            } else {
+                Button {
+                    Task { await service.backupOriginalTones() }
+                } label: {
+                    Label("Back Up Original Tones", systemImage: "square.and.arrow.down.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(service.isBusy)
+
+                Text("No backup yet. Back up the original tones so they can be restored later.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
             if service.isBusy {
                 ProgressView()
             }
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
-    }
-
-    private var toneToggle: some View {
-        VStack(spacing: 14) {
-            Toggle(
-                isOn: Binding(
-                    get: { service.mode == .silentTone },
-                    set: { enabled in
-                        if enabled {
-                            Task { await service.applySilentTone() }
-                        } else {
-                            Task { await service.restoreSystemTone() }
-                        }
-                    }
-                )
-            ) {
-                Label("Silence recording tone", systemImage: "speaker.slash.fill")
-                    .font(.headline)
-            }
-            .tint(.orange)
-            .disabled(service.isBusy || service.mode == .checking || service.mode == .unavailable)
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
@@ -177,63 +210,15 @@ struct AirBeepRootView: View {
             Label("Original tones are backed up before the first change.", systemImage: "checkmark.shield")
             Label("Start and stop sounds are replaced with equal-length silence.", systemImage: "waveform.slash")
             Label("Changing the system language will force the original tones back.", systemImage: "globe")
+            Label(
+                "The periodic tone during a long recording lives on the read-only system volume and cannot be replaced.",
+                systemImage: "bell.slash"
+            )
             Label("This app relies on non-public system behavior. Use it carefully.", systemImage: "exclamationmark.triangle")
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var modeTitle: String {
-        switch service.mode {
-        case .checking:
-            String(localized: "Checking...")
-        case .systemTone:
-            String(localized: "System Original")
-        case .silentTone:
-            String(localized: "Silent")
-        case .unavailable:
-            String(localized: "Unavailable")
-        }
-    }
-
-    private var modeDetail: String {
-        switch service.mode {
-        case .checking:
-            String(localized: "Reading the current disclosure tones.")
-        case .systemTone:
-            String(localized: "The iPhone's original recording disclosure tones are active.")
-        case .silentTone:
-            String(localized: "The recording disclosure tones are replaced with silence.")
-        case .unavailable:
-            service.statusDetail ?? String(localized: "This device or system version does not support the required access.")
-        }
-    }
-
-    private var modeSymbol: String {
-        switch service.mode {
-        case .checking:
-            "hourglass"
-        case .systemTone:
-            "speaker.wave.2.fill"
-        case .silentTone:
-            "speaker.slash.fill"
-        case .unavailable:
-            "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var modeColor: Color {
-        switch service.mode {
-        case .checking:
-            .secondary
-        case .systemTone:
-            .blue
-        case .silentTone:
-            .orange
-        case .unavailable:
-            .red
-        }
     }
 }
 

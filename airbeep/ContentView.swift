@@ -4,9 +4,10 @@ import SwiftUI
 @main
 struct AirBeepApp: App {
     init() {
-        let host = Bundle.main.object(forInfoDictionaryKey: "AirliftTargetHost") as? String ?? "10.7.0.1"
-        let result = host.withCString { al_set_target_host($0) }
-        precondition(result == 0, "Could not configure the Airlift target host")
+        // The configured host stays the primary target; the interface scan
+        // adds the current LocalDevVPN/Wi-Fi addresses as extra candidates so
+        // the tunnel adapts to the actual network without any probing.
+        NetworkStatus.syncTargetHostsToAirlift()
     }
 
     var body: some Scene {

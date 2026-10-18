@@ -15,6 +15,13 @@ enum SystemCompatibility {
         return true
     }
 
+    /// On-device pairing (Settings › Developer Mode › Pair with AirBeep) is
+    /// only offered on iOS 27 and later. Below that the pairing file has to be
+    /// generated on a computer (iloader or idevice_pair) and imported.
+    static var supportsOnDevicePairing: Bool {
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
+    }
+
     static var supportedRangeDescription: String {
         String(localized: "iOS/iPadOS 18.0–27.2 B2")
     }
