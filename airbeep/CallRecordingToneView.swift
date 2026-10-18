@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct AirBeepRootView: View {
     @StateObject private var service = CallRecordingToneService.shared
@@ -98,11 +99,20 @@ struct AirBeepRootView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Text("v\(appVersion)")
+            Text(verbatim: versionLine)
                 .font(.footnote.monospacedDigit())
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// System version, then app name plus version, e.g.
+    /// `iOS 27.1  AirBeep v2.5.0 (8)`.
+    private var versionLine: String {
+        let system = ProcessInfo.processInfo.operatingSystemVersion
+        let platform = UIDevice.current.userInterfaceIdiom == .pad ? "iPadOS" : "iOS"
+        let systemText = "\(platform) \(system.majorVersion).\(system.minorVersion).\(system.patchVersion)"
+        return "\(systemText)  AirBeep v\(appVersion)"
     }
 
     /// Marketing version plus build number, e.g. `2.5.0 (8)`.
@@ -214,7 +224,6 @@ struct AirBeepRootView: View {
                 "The periodic tone during a long recording lives on the read-only system volume and cannot be replaced.",
                 systemImage: "bell.slash"
             )
-            Label("This app relies on non-public system behavior. Use it carefully.", systemImage: "exclamationmark.triangle")
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
