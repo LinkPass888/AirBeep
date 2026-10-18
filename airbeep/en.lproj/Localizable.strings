@@ -92,7 +92,6 @@
 "Back up the original disclosure tones, then silence them. Restore the originals at any time." = "Back up the original disclosure tones, then silence them. Restore the originals at any time.";
 "Back Up Original Tones" = "Back Up Original Tones";
 "Restore original tone" = "Restore original tone";
-"No backup yet. Back up the original tones so they can be restored later." = "No backup yet. Back up the original tones so they can be restored later.";
 "Backing up original call recording tones" = "Backing up original tones. Do not exit the app.";
 "The original recording tones were backed up. You can silence them now." = "The original recording tones were backed up. You can silence them now.";
 "The recording tones are already silent." = "The recording tones are already silent.";

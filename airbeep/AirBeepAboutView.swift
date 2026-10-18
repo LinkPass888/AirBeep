@@ -88,7 +88,7 @@ struct AirBeepAboutView: View {
         }
     }
 
-    /// Marketing version plus build number, e.g. `Version 2.5.0 (8)`.
+    /// Marketing version plus build number, e.g. `Version 2.5.1 (9)`.
     ///
     /// Built with String(format:) rather than SwiftUI interpolation so the
     /// lookup key is the literal "%@" form present in both catalogs.

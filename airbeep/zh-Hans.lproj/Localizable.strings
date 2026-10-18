@@ -92,7 +92,6 @@
 "Back up the original disclosure tones, then silence them. Restore the originals at any time." = "先备份原始录音提示音，再将其静音。随时可以恢复原音。";
 "Back Up Original Tones" = "备份原始提示音";
 "Restore original tone" = "恢复原始提示音";
-"No backup yet. Back up the original tones so they can be restored later." = "尚无备份。请先备份原始提示音，以便之后恢复。";
 "Backing up original call recording tones" = "正在备份原始提示音，请不要退出软件";
 "The original recording tones were backed up. You can silence them now." = "原始录音提示音已备份，现在可以将它们静音。";
 "The recording tones are already silent." = "录音提示音当前已是静音。";

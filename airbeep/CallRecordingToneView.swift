@@ -107,7 +107,7 @@ struct AirBeepRootView: View {
     }
 
     /// System version, then app name plus version, e.g.
-    /// `iOS 27.1  AirBeep v2.5.0 (8)`.
+    /// `iOS 27.1  AirBeep v2.5.1 (9)`.
     private var versionLine: String {
         let system = ProcessInfo.processInfo.operatingSystemVersion
         let platform = UIDevice.current.userInterfaceIdiom == .pad ? "iPadOS" : "iOS"
@@ -115,7 +115,7 @@ struct AirBeepRootView: View {
         return "\(systemText)  AirBeep v\(appVersion)"
     }
 
-    /// Marketing version plus build number, e.g. `2.5.0 (8)`.
+    /// Marketing version plus build number, e.g. `2.5.1 (9)`.
     private var appVersion: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
@@ -165,7 +165,7 @@ struct AirBeepRootView: View {
                 .controlSize(.large)
                 .disabled(service.isBusy)
 
-                Text("No backup yet. Back up the original tones so they can be restored later.")
+                Text("Original tones are backed up before the first change.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -217,7 +217,6 @@ struct AirBeepRootView: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Original tones are backed up before the first change.", systemImage: "checkmark.shield")
             Label("Start and stop sounds are replaced with equal-length silence.", systemImage: "waveform.slash")
             Label("Changing the system language will force the original tones back.", systemImage: "globe")
             Label(

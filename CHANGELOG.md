@@ -4,7 +4,7 @@ All notable changes to **AirBeep** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [2.5.0] - 2026-10-18
+## [2.5.1] - 2026-10-18
 
 ### English / Changed
 - **iOS 18 is now supported.** The deployment target drops from iOS 27 to
@@ -83,7 +83,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-**Full Changelog**: [v2.4.1...v2.5.0](https://github.com/LinkPass888/AirBeep/compare/v2.4.1...v2.5.0)
+**Full Changelog**: [v2.4.1...v2.5.1](https://github.com/LinkPass888/AirBeep/compare/v2.4.1...v2.5.1)
 
 ## [2.4.1] - 2026-10-17
 
