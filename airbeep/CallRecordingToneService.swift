@@ -78,6 +78,10 @@ final class CallRecordingToneService: ObservableObject {
     /// alert. The current tone state is deliberately not displayed: detecting it
     /// needs a device read, which is unreliable on some iOS releases.
     @Published private(set) var successMessage: String?
+    /// Set by the manual tone-status check; the view shows it as an alert.
+    /// Reading the tones is only ever done on explicit request because the
+    /// read channel is unreliable on some iOS releases.
+    @Published private(set) var verificationMessage: String?
     @Published private(set) var needsAirliftSetup = false
     @Published private(set) var busyMessage: String?
 
@@ -151,6 +155,10 @@ final class CallRecordingToneService: ObservableObject {
 
     func clearSuccess() {
         successMessage = nil
+    }
+
+    func clearVerification() {
+        verificationMessage = nil
     }
 
     /// Reads the current disclosure tones and saves them as the restore source.
@@ -244,13 +252,23 @@ final class CallRecordingToneService: ObservableObject {
                 }
 
                 do {
-                    try await self.writeTones(silent, using: backend)
+                    let verified = try await self.writeTones(silent, using: backend)
                     ToneBackupStateCache.save(!haveBackup)
-                    self.finishSuccess(
-                        haveBackup
-                            ? String(localized: "The recording tones were silenced.")
-                            : String(localized: "The recording tones were silenced, but the originals could not be fully backed up. Change the system language once to get them back.")
-                    )
+                    if verified {
+                        self.finishSuccess(
+                            haveBackup
+                                ? String(localized: "The recording tones were silenced.")
+                                : String(localized: "The recording tones were silenced, but the originals could not be fully backed up. Change the system language once to get them back.")
+                        )
+                    } else {
+                        // The write channel reported success but the read-back
+                        // could not confirm it (the read channel is unreliable
+                        // on some iOS releases). Say so instead of claiming a
+                        // verified success, and point at the manual check.
+                        self.finishSuccess(
+                            String(localized: "The silence was written, but the result could not be verified automatically. Use \"Check tone status\" to confirm.")
+                        )
+                    }
                     AirBeepLog.shared.append("applySilentTone: success")
                 } catch {
                     try? await self.writeTones(current, using: backend)
@@ -258,6 +276,51 @@ final class CallRecordingToneService: ObservableObject {
                 }
             } catch {
                 self.reportOperationError(error)
+            }
+        }
+    }
+
+    /// Reads the disclosure tones on demand and reports what could be
+    /// determined. This is deliberately a manual action: the read channel is
+    /// unreliable on some iOS releases (see readTonesTolerant), so it must
+    /// never run automatically or gate an operation.
+    func verifyToneStatus() async {
+        guard !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+        AirBeepLog.shared.append("verifyToneStatus: start")
+
+        await withBusyScreen(String(localized: "Checking the recording tone status")) { [self] in
+            do {
+                NetworkStatus.syncTargetHostsToAirlift()
+
+                let backend = try accessBackend()
+                let current = await readTonesTolerant(using: backend)
+                let silent = try silentTones()
+
+                let anyReadable = current.contains { $0 != nil }
+                guard anyReadable else {
+                    // An all-nil table is a read failure, not a state. The
+                    // write may or may not have taken effect.
+                    verificationMessage = String(
+                        localized: "The tone status could not be checked: the read channel is unavailable on this iOS release. The last change may or may not have taken effect."
+                    )
+                    AirBeepLog.shared.append("verifyToneStatus: unreadable")
+                    return
+                }
+                if Self.tones(current, equal: silent, requireAll: false) {
+                    verificationMessage = String(
+                        localized: "The recording tones are silenced on this device."
+                    )
+                    AirBeepLog.shared.append("verifyToneStatus: silenced")
+                } else {
+                    verificationMessage = String(
+                        localized: "The original recording tones are still in place; the silence has not taken effect."
+                    )
+                    AirBeepLog.shared.append("verifyToneStatus: originals")
+                }
+            } catch {
+                reportOperationError(error)
             }
         }
     }
@@ -533,29 +596,37 @@ final class CallRecordingToneService: ObservableObject {
     /// truth: its return code decides success. The read-back verification
     /// runs best-effort — it still fails the operation when a read succeeds
     /// but returns different bytes, while an unavailable read only logs.
-    private func writeTones(_ tones: [Data?], using backend: AccessBackend) async throws {
+    ///
+    /// Returns `true` when every expected tone was re-read and matched. A
+    /// `false` return means the re-read was unavailable, not that the write
+    /// failed; the caller picks the corresponding success wording.
+    @discardableResult
+    private func writeTones(_ tones: [Data?], using backend: AccessBackend) async throws -> Bool {
         switch backend {
         case .airlift(let pairingPath):
             let payload = zip(files, tones).compactMap { file, data -> AirliftToneFile? in
                 guard let data else { return nil }
                 return AirliftToneFile(name: file.name, data: data)
             }
-            guard !payload.isEmpty else { return }
+            guard !payload.isEmpty else { return true }
             try await AirliftToneTransport.shared.write(files: payload, pairingPath: pairingPath)
         }
 
         let verified = await readTonesTolerant(using: backend)
+        var allVerified = true
         for (index, file) in files.enumerated() {
             guard let expected = tones.indices.contains(index) ? tones[index] : nil else { continue }
             guard verified.indices.contains(index), let actual = verified[index] else {
                 AirBeepLog.shared.append(
                     "writeTones: could not re-read \(file.name) to verify; write channel reported success"
                 )
+                allVerified = false
                 continue
             }
             guard actual == expected else {
                 throw CallRecordingToneError.verificationFailed(file.name)
             }
         }
+        return allVerified
     }
 }

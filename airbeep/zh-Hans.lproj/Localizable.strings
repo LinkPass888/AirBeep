@@ -102,3 +102,10 @@
 "The tones on this device are already silent, so there are no originals left to back up. Change the system language once (Settings › General › Language & Region) to force iOS to regenerate them, then try again." = "这台设备上的提示音已是静音，没有可供备份的原音。请前往“设置 › 通用 › 语言与地区”更改一次系统语言，强制 iOS 重新生成原音，然后重试。";
 "Only some of the original tones could be read, so the backup is incomplete. The rest can still be recovered by changing the system language once." = "仅读取到部分原始提示音，备份不完整。其余原音仍可通过更改一次系统语言来找回。";
 "Later system versions cannot be supported." = "之后的系统版本无法支持。";
+"Check tone status" = "校验提示音状态";
+"Checking the recording tone status" = "正在校验录音提示音状态，请不要退出软件";
+"Tone Status" = "提示音状态";
+"The recording tones are silenced on this device." = "这台设备上的录音提示音已静音。";
+"The original recording tones are still in place; the silence has not taken effect." = "当前仍是原始录音提示音，静音尚未生效。";
+"The tone status could not be checked: the read channel is unavailable on this iOS release. The last change may or may not have taken effect." = "无法校验提示音状态：此 iOS 版本上的读取通道不可用。上一次更改可能已生效，也可能未生效。";
+"The silence was written, but the result could not be verified automatically. Use \"Check tone status\" to confirm." = "静音已写入，但未能自动校验结果。可使用“校验提示音状态”手动确认。";

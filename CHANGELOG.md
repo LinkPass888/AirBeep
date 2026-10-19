@@ -4,6 +4,39 @@ All notable changes to **AirBeep** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.5.2] - 2026-10-19
+
+### English / Added
+- **Check tone status button.** The current tone state can now be checked on
+  demand from the home screen. The read channel is unreliable on some iOS
+  releases (the AirTraffic move step never completes there), so the check
+  reports one of three outcomes: silenced, originals still in place, or
+  unverifiable on this device. It never runs automatically and never gates an
+  operation.
+
+### English / Changed
+- After silencing, the success alert no longer claims a verified result when
+  the read-back could not confirm it; it says the silence was written but
+  unverified and points at the tone status check. This covers the
+  [issue #6](https://github.com/LinkPass888/AirBeep/issues/6) report where the
+  write channel returns success on iOS 27.x while the tones never change.
+
+---
+
+### 中文 / 新增
+- **校验提示音状态按钮。** 可在首页按需检测当前提示音状态。部分 iOS 版本上
+  读取通道不可靠（AirTraffic 搬运步骤始终无法完成），因此检测结果分为三种：
+  已静音、原始提示音仍在、本机无法校验。该检测绝不自动运行，也不会阻断
+  任何操作。
+
+### 中文 / 变更
+- 静音后的成功弹窗在回读校验无法确认时不再直接宣称成功，改为提示"静音
+  已写入、结果未经校验"，并引导使用提示音状态校验。对应
+  [issue #6](https://github.com/LinkPass888/AirBeep/issues/6) 反馈的
+  iOS 27.x 上写入通道返回成功但提示音实际未变的问题。
+
+---
+
 ## [2.5.1] - 2026-10-18
 
 ### English / Changed

@@ -80,6 +80,23 @@ struct AirBeepRootView: View {
         } message: {
             Text(service.successMessage ?? "")
         }
+        .alert(
+            "Tone Status",
+            isPresented: Binding(
+                get: { service.verificationMessage != nil },
+                set: { presented in
+                    if !presented {
+                        service.clearVerification()
+                    }
+                }
+            )
+        ) {
+            Button("OK") {
+                service.clearVerification()
+            }
+        } message: {
+            Text(service.verificationMessage ?? "")
+        }
     }
 
     private var header: some View {
@@ -126,8 +143,9 @@ struct AirBeepRootView: View {
 
     /// Two independent actions instead of one switch: silence the tones, and
     /// either back up the originals (when no backup exists yet) or restore
-    /// them. The current tone state is intentionally not shown — detecting it
-    /// needs a device read that is unreliable on some iOS releases.
+    /// them. The current tone state is only shown through the manual status
+    /// check — detecting it needs a device read that is unreliable on some
+    /// iOS releases, so it never runs automatically.
     private var toneActions: some View {
         VStack(spacing: 14) {
             Button {
@@ -170,6 +188,16 @@ struct AirBeepRootView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+
+            Button {
+                Task { await service.verifyToneStatus() }
+            } label: {
+                Label("Check tone status", systemImage: "checkmark.seal")
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(service.isBusy)
 
             if service.isBusy {
                 ProgressView()

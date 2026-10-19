@@ -102,3 +102,10 @@
 "The tones on this device are already silent, so there are no originals left to back up. Change the system language once (Settings › General › Language & Region) to force iOS to regenerate them, then try again." = "The tones on this device are already silent, so there are no originals left to back up. Change the system language once (Settings › General › Language & Region) to force iOS to regenerate them, then try again.";
 "Only some of the original tones could be read, so the backup is incomplete. The rest can still be recovered by changing the system language once." = "Only some of the original tones could be read, so the backup is incomplete. The rest can still be recovered by changing the system language once.";
 "Later system versions cannot be supported." = "Later system versions cannot be supported.";
+"Check tone status" = "Check tone status";
+"Checking the recording tone status" = "Checking the recording tone status. Do not exit the app.";
+"Tone Status" = "Tone Status";
+"The recording tones are silenced on this device." = "The recording tones are silenced on this device.";
+"The original recording tones are still in place; the silence has not taken effect." = "The original recording tones are still in place; the silence has not taken effect.";
+"The tone status could not be checked: the read channel is unavailable on this iOS release. The last change may or may not have taken effect." = "The tone status could not be checked: the read channel is unavailable on this iOS release. The last change may or may not have taken effect.";
+"The silence was written, but the result could not be verified automatically. Use \"Check tone status\" to confirm." = "The silence was written, but the result could not be verified automatically. Use \"Check tone status\" to confirm.";
